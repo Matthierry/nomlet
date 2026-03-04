@@ -1,0 +1,28 @@
+[
+  {
+    "id": "chicken_curry",
+    "name": "Chicken Curry",
+    "image": "/images/placeholder-meal.svg",
+    "serves": 2,
+    "calories": null,
+    "recipeUrl": "https://example.com/chicken-curry",
+    "ingredients": [
+      { "name": "Chicken breast", "quantity": 2, "unit": "pcs" },
+      { "name": "Onion", "quantity": 1, "unit": "pcs" },
+      { "name": "Curry paste", "quantity": 2, "unit": "tbsp" }
+    ]
+  },
+  {
+    "id": "veggie_pasta",
+    "name": "Veggie Pasta",
+    "image": "/images/placeholder-meal.svg",
+    "serves": 2,
+    "calories": null,
+    "recipeUrl": "https://example.com/veggie-pasta",
+    "ingredients": [
+      { "name": "Pasta", "quantity": 250, "unit": "g" },
+      { "name": "Onion", "quantity": 1, "unit": "pcs" },
+      { "name": "Tomato sauce", "quantity": 1, "unit": "jar" }
+    ]
+  }
+]
