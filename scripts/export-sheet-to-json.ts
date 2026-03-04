@@ -68,7 +68,9 @@ const exportData = async () => {
       grouped.set(row.meal_id, {
         id: row.meal_id,
         name: row.meal_name,
+
         image: row.image_url || 'images/placeholder-meal.svg',
+
         serves: 2,
         calories: null,
         recipeUrl: row.recipe_url,

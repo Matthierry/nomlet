@@ -2,7 +2,9 @@
   {
     "id": "chicken_curry",
     "name": "Chicken Curry",
+
     "image": "images/placeholder-meal.svg",
+
     "serves": 2,
     "calories": null,
     "recipeUrl": "https://example.com/chicken-curry",
@@ -15,7 +17,9 @@
   {
     "id": "veggie_pasta",
     "name": "Veggie Pasta",
+
     "image": "images/placeholder-meal.svg",
+
     "serves": 2,
     "calories": null,
     "recipeUrl": "https://example.com/veggie-pasta",

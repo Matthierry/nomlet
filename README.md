@@ -49,7 +49,9 @@ npm run build
 The build script automatically runs `export:data` first.
 
 ## Deploy to GitHub Pages
+
 1. `vite.config.ts` uses `base: './'` so built assets stay relative and work on GitHub Pages project paths.
+
 2. Run:
    ```bash
    npm run deploy

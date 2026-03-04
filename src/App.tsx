@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { fetchMeals } from './lib/api';
-import { normalizeMealAssets } from './lib/normalizeMeals';
 import type { Meal } from './types';
 import { useNomletState } from './lib/useNomletState';
 import { MealsPage } from './pages/MealsPage';
@@ -19,7 +18,7 @@ const App = () => {
     const loadMeals = async () => {
       try {
         const data = await fetchMeals();
-        setMeals(normalizeMealAssets(data));
+        setMeals(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error while loading meals.');
       } finally {
