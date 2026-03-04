@@ -1,4 +1,5 @@
 import type { Meal } from '../types';
+import { withBaseUrl } from '../lib/assets';
 
 interface MealCardProps {
   meal: Meal;
@@ -7,13 +8,11 @@ interface MealCardProps {
 }
 
 export const MealCard = ({ meal, inBasket, onToggle }: MealCardProps) => {
+  const fallbackImage = withBaseUrl('images/placeholder-meal.svg');
+
   return (
     <article className="overflow-hidden rounded-2xl bg-white shadow-soft dark:bg-[#566565]">
-      <img
-        src={meal.image || 'images/placeholder-meal.svg'}
-        alt={meal.name}
-        className="h-40 w-full object-cover"
-      />
+      <img src={meal.image || fallbackImage} alt={meal.name} className="h-40 w-full object-cover" />
       <div className="space-y-3 p-4">
         <div>
           <h3 className="text-lg font-semibold">{meal.name}</h3>

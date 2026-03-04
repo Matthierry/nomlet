@@ -1,9 +1,11 @@
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { withBaseUrl } from '../lib/assets';
 import type { NomletContext } from '../lib/outlet-context';
 
 export const BasketPage = () => {
   const { selectedMeals, toggleBasket, ingredientCount } = useOutletContext<NomletContext>();
   const navigate = useNavigate();
+  const fallbackImage = withBaseUrl('images/placeholder-meal.svg');
 
   return (
     <section className="space-y-4">
@@ -21,7 +23,7 @@ export const BasketPage = () => {
                   alt={meal.name}
                   className="h-16 w-16 rounded-xl object-cover"
                   onError={(event) => {
-                    event.currentTarget.src = 'images/placeholder-meal.svg';
+                    event.currentTarget.src = fallbackImage;
                   }}
                 />
                 <div className="flex-1">

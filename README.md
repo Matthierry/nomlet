@@ -56,6 +56,16 @@ The build script automatically runs `export:data` first.
    ```
 3. In GitHub repo settings, use the `gh-pages` branch for Pages hosting.
 
+
+## If you are resolving merge conflicts
+Keep these as the source of truth and remove alternatives:
+- `vite.config.ts`: keep `base: './'` (do not switch back to `/nomlet/` unless you fully control repo name and deployment path).
+- `src/lib/api.ts`: keep `fetch(withBaseUrl('data/meals.json'))`.
+- `src/lib/normalizeMeals.ts`: keep this file and keep the call in `src/App.tsx` (`setMeals(normalizeMealAssets(data))`).
+- Meal image defaults should be `images/placeholder-meal.svg` (not `/images/...`).
+
+If both versions exist after a merge, keep the versions above and remove the conflicting duplicates.
+
 ## Weekly content update workflow
 1. Update your Google Sheet meal rows.
 2. Run:
