@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" fill="none">
+  <rect width="800" height="500" fill="#D5E5E5"/>
+  <circle cx="160" cy="130" r="60" fill="#F7CBCA"/>
+  <rect x="90" y="230" width="620" height="34" rx="17" fill="#A0C7C6"/>
+  <rect x="90" y="286" width="460" height="24" rx="12" fill="#F1F7F7"/>
+  <text x="90" y="180" fill="#5D6B6B" font-size="54" font-family="Arial, sans-serif">Nomlet meal</text>
+</svg>
