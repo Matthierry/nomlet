@@ -1,0 +1,8 @@
+<svg width="800" height="500" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="500" rx="40" fill="#D5E5E5"/>
+  <circle cx="400" cy="250" r="140" fill="#F1F7F7"/>
+  <circle cx="400" cy="250" r="165" fill="none" stroke="#A0C7C6" stroke-width="18" opacity="0.65"/>
+  <text x="50%" y="82%" dominant-baseline="middle" text-anchor="middle" fill="#5D6B6B" font-size="36" font-family="Arial, sans-serif">
+    Nomlet
+  </text>
+</svg>
