@@ -51,8 +51,19 @@ export function MealsPage({
 
   return (
     <>
-      {/* Search */}
-      <div style={{ marginBottom: 12 }}>
+      {/* Sticky Search */}
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          background: ui.bg,
+          paddingTop: 2,
+          paddingBottom: 10,
+          // Makes it feel "native app" when scrolling under it
+          backdropFilter: "blur(10px)",
+        }}
+      >
         <div
           style={{
             background: ui.card,
@@ -115,7 +126,9 @@ export function MealsPage({
             <input
               ref={searchInputRef}
               defaultValue=""
-              onInput={(e) => scheduleQueryUpdate((e.target as HTMLInputElement).value)}
+              onInput={(e) =>
+                scheduleQueryUpdate((e.target as HTMLInputElement).value)
+              }
               placeholder="Search meals…"
               inputMode="search"
               autoCorrect="off"
@@ -157,8 +170,17 @@ export function MealsPage({
           </div>
 
           {/* Info line (no "type 3 letters" instruction) */}
-          <div style={{ marginTop: 10, color: ui.muted, fontSize: 13, fontWeight: 800 }}>
-            {searchActive ? `Showing ${mealListToShow.length} of ${meals.length}` : `Showing ${meals.length} meals`}
+          <div
+            style={{
+              marginTop: 10,
+              color: ui.muted,
+              fontSize: 13,
+              fontWeight: 800,
+            }}
+          >
+            {searchActive
+              ? `Showing ${mealListToShow.length} of ${meals.length}`
+              : `Showing ${meals.length} meals`}
           </div>
         </div>
       </div>
@@ -166,8 +188,17 @@ export function MealsPage({
       {loading && <p style={{ color: ui.muted }}>Loading meals…</p>}
 
       {error && (
-        <div style={{ background: ui.card, padding: 12, borderRadius: 12, border: `1px solid ${ui.border}` }}>
-          <p style={{ margin: 0, color: ui.pink, fontWeight: 900 }}>Error: {error}</p>
+        <div
+          style={{
+            background: ui.card,
+            padding: 12,
+            borderRadius: 12,
+            border: `1px solid ${ui.border}`,
+          }}
+        >
+          <p style={{ margin: 0, color: ui.pink, fontWeight: 900 }}>
+            Error: {error}
+          </p>
         </div>
       )}
 
@@ -186,15 +217,42 @@ export function MealsPage({
                   border: `1px solid ${ui.border}`,
                 }}
               >
-                <img src={meal.imageUrl} alt="" style={{ width: "100%", height: 160, objectFit: "cover" }} />
+                <img
+                  src={meal.imageUrl}
+                  alt=""
+                  style={{ width: "100%", height: 160, objectFit: "cover" }}
+                />
                 <div style={{ padding: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 12,
+                    }}
+                  >
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 900, color: ui.brand }}>{meal.name}</div>
-                      <div style={{ marginTop: 4, color: ui.muted, fontSize: 13 }}>Calories: ??? • Serves 2</div>
+                      <div style={{ fontWeight: 900, color: ui.brand }}>
+                        {meal.name}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 4,
+                          color: ui.muted,
+                          fontSize: 13,
+                        }}
+                      >
+                        Calories: ??? • Serves 2
+                      </div>
                     </div>
 
-                    <div style={{ color: ui.accent, fontWeight: 900, alignSelf: "center", whiteSpace: "nowrap" }}>
+                    <div
+                      style={{
+                        color: ui.accent,
+                        fontWeight: 900,
+                        alignSelf: "center",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {meal.ingredients.length} items
                     </div>
                   </div>
