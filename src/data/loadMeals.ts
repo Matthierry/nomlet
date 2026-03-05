@@ -83,7 +83,7 @@ export type IngredientRow = {
         mealsMap.set(meal_id, {
           id: meal_id,
           name: meal_name,
-          imageUrl: "/images/nomlet-placeholder.png",
+          imageUrl: `${import.meta.env.BASE_URL}images/nomlet-placeholder.png`,
           serves: 2,
           calories: null,
           ingredients: [],
