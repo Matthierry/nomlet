@@ -4,10 +4,10 @@ import App from "./App.tsx"
 import "./index.css"
 import { registerSW } from "virtual:pwa-register"
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
+ReactDOM.createRoot(document.getElementById("root")!).render(<App />)
 
-registerSW({ immediate: true })
+// Register the service worker AFTER the app is mounted.
+// Avoid immediate: true because it can interfere with focus/inputs during updates.
+registerSW({
+  immediate: false,
+})
