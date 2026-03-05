@@ -55,7 +55,7 @@ function saveEdits(m: EditsMap) {
 }
 
 function ingredientKey(name: string, unit: string) {
-  return `${name}__${unit}` // strict: name+unit
+  return `${name}__${unit}`
 }
 
 export default function App() {
@@ -70,25 +70,13 @@ export default function App() {
   const [checks, setChecks] = useState<ChecksMap>(() => loadChecks())
   const [edits, setEdits] = useState<EditsMap>(() => loadEdits())
 
-  // ========= SEARCH (FIXED): uncontrolled input + debounced filter state =========
-  const searchWrapRef = useRef<HTMLDivElement | null>(null)
+  // -------- Search (simple, no dropdown, no outside click, no open/close state) --------
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-
-  // queryRef stores what user is typing (no re-renders)
-  const queryRef = useRef<string>("")
-  // query is what React uses for filtering (debounced)
-  const [query, setQuery] = useState<string>("")
-  // used only to show/hide clear button + helper text, updated debounced (not per-keystroke)
-  const [queryUI, setQueryUI] = useState<string>("")
-
+  const [query, setQuery] = useState("") // debounced query used for filtering
+  const [queryUI, setQueryUI] = useState("") // debounced for UI (clear button / helper)
   const debounceTimer = useRef<number | null>(null)
-  const [searchOpen, setSearchOpen] = useState(false)
 
   function scheduleQueryUpdate(next: string) {
-    // Update refs instantly (no re-render)
-    queryRef.current = next
-
-    // Debounce state updates to avoid focus loss
     if (debounceTimer.current) window.clearTimeout(debounceTimer.current)
     debounceTimer.current = window.setTimeout(() => {
       setQuery(next)
@@ -97,12 +85,10 @@ export default function App() {
   }
 
   function clearSearch() {
-    queryRef.current = ""
     if (searchInputRef.current) searchInputRef.current.value = ""
     if (debounceTimer.current) window.clearTimeout(debounceTimer.current)
     setQuery("")
     setQueryUI("")
-    setSearchOpen(true)
     requestAnimationFrame(() => searchInputRef.current?.focus())
   }
 
@@ -130,21 +116,6 @@ export default function App() {
         setLoading(false)
       }
     })()
-  }, [])
-
-  // Close search dropdown on outside click/tap
-  useEffect(() => {
-    function onDown(e: MouseEvent | TouchEvent) {
-      const el = searchWrapRef.current
-      if (!el) return
-      if (e.target instanceof Node && !el.contains(e.target)) setSearchOpen(false)
-    }
-    document.addEventListener("mousedown", onDown)
-    document.addEventListener("touchstart", onDown, { passive: true })
-    return () => {
-      document.removeEventListener("mousedown", onDown)
-      document.removeEventListener("touchstart", onDown)
-    }
   }, [])
 
   const ui = useMemo(() => {
@@ -185,12 +156,7 @@ export default function App() {
   useEffect(() => {
     const setStyle = (el: HTMLElement, s: Partial<CSSStyleDeclaration>) => Object.assign(el.style, s)
     setStyle(document.documentElement, { background: ui.bg })
-    setStyle(document.body, {
-      background: ui.bg,
-      margin: "0",
-      overflowX: "hidden",
-      width: "100%",
-    })
+    setStyle(document.body, { background: ui.bg, margin: "0", overflowX: "hidden", width: "100%" })
   }, [ui.bg])
 
   const basketCount = basket.length
@@ -215,13 +181,22 @@ export default function App() {
     setEdits({})
     liveEditsRef.current = {}
     clearSearch()
-    setSearchOpen(false)
     setPage("meals")
   }
 
   function clearBasketOnly() {
     setBasket([])
   }
+
+  // Search rule: filter list only when 3+ letters
+  const queryTrim = query.trim()
+  const searchActive = queryTrim.length >= 3
+  const queryLower = queryTrim.toLowerCase()
+
+  const mealListToShow = useMemo(() => {
+    if (!searchActive) return meals
+    return meals.filter((m) => m.name.toLowerCase().includes(queryLower))
+  }, [meals, searchActive, queryLower])
 
   const BottomNav = () => {
     const items: { id: Page; label: string; badge?: number }[] = [
@@ -318,33 +293,10 @@ export default function App() {
     </div>
   )
 
-  // 3+ letters rule
-  const queryTrim = query.trim()
-  const queryLower = queryTrim.toLowerCase()
-  const searchActive = queryTrim.length >= 3
-
-  const suggestions = useMemo(() => {
-    if (!searchActive) return []
-    return meals.filter((m) => m.name.toLowerCase().includes(queryLower)).slice(0, 10)
-  }, [meals, queryLower, searchActive])
-
-  const mealListToShow = useMemo(() => {
-    if (!searchActive) return meals
-    return meals.filter((m) => m.name.toLowerCase().includes(queryLower))
-  }, [meals, queryLower, searchActive])
-
   const MealsPage = () => (
     <>
-      <div ref={searchWrapRef} style={{ marginBottom: 12 }}>
-        <div
-          style={{
-            background: ui.card,
-            borderRadius: 16,
-            padding: 12,
-            boxShadow: ui.shadow,
-            border: `1px solid ${ui.border}`,
-          }}
-        >
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ background: ui.card, borderRadius: 16, padding: 12, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
           <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Find a meal</div>
 
           <div
@@ -356,9 +308,9 @@ export default function App() {
               border: `1px solid ${ui.border}`,
               borderRadius: 14,
               padding: "10px 12px",
-              boxSizing: "border-box",
               width: "100%",
               overflow: "hidden",
+              boxSizing: "border-box",
             }}
           >
             <span style={{ color: ui.muted, fontWeight: 900 }}>🔎</span>
@@ -366,11 +318,7 @@ export default function App() {
             <input
               ref={searchInputRef}
               defaultValue=""
-              onInput={(e) => {
-                const v = (e.target as HTMLInputElement).value
-                scheduleQueryUpdate(v)
-              }}
-              onFocus={() => setSearchOpen(true)}
+              onInput={(e) => scheduleQueryUpdate((e.target as HTMLInputElement).value)}
               placeholder="Search meals… (type 3+ letters)"
               inputMode="search"
               autoCorrect="off"
@@ -391,14 +339,7 @@ export default function App() {
             {queryUI.length > 0 && (
               <button
                 onClick={clearSearch}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  color: ui.brand,
-                  fontWeight: 900,
-                  cursor: "pointer",
-                  padding: 0,
-                }}
+                style={{ border: "none", background: "transparent", color: ui.brand, fontWeight: 900, cursor: "pointer", padding: 0 }}
                 aria-label="Clear search"
               >
                 ✕
@@ -406,85 +347,9 @@ export default function App() {
             )}
           </div>
 
-          <div style={{ display: "flex", gap: 10, marginTop: 10, alignItems: "center" }}>
-            <div style={{ color: ui.muted, fontSize: 13, fontWeight: 800, flex: 1 }}>
-              {searchActive ? (
-                <>Showing {mealListToShow.length} of {meals.length}</>
-              ) : (
-                <>Type at least 3 letters to search • Showing {meals.length} meals</>
-              )}
-            </div>
+          <div style={{ marginTop: 10, color: ui.muted, fontSize: 13, fontWeight: 800 }}>
+            {searchActive ? `Showing ${mealListToShow.length} of ${meals.length}` : `Type at least 3 letters • Showing ${meals.length} meals`}
           </div>
-
-          {searchOpen && queryUI.trim().length > 0 && (
-            <div
-              style={{
-                marginTop: 10,
-                background: ui.card,
-                border: `1px solid ${ui.border}`,
-                borderRadius: 14,
-                overflow: "hidden",
-              }}
-            >
-              {!searchActive ? (
-                <div style={{ padding: 12, color: ui.muted, fontWeight: 800 }}>
-                  Keep typing… ({queryUI.trim().length}/3)
-                </div>
-              ) : suggestions.length === 0 ? (
-                <div style={{ padding: 12, color: ui.muted, fontWeight: 800 }}>
-                  No matches for “{queryTrim}”
-                </div>
-              ) : (
-                suggestions.map((m) => {
-                  const inBasket = basket.includes(m.id)
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                        toggleMeal(m.id)
-                        requestAnimationFrame(() => searchInputRef.current?.focus())
-                      }}
-                      style={{
-                        width: "100%",
-                        textAlign: "left",
-                        padding: "12px 12px",
-                        background: "transparent",
-                        border: "none",
-                        borderBottom: `1px solid ${ui.border}`,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                      }}
-                    >
-                      <img
-                        src={m.imageUrl}
-                        alt=""
-                        style={{ width: 38, height: 38, borderRadius: 12, objectFit: "cover", border: `1px solid ${ui.border}` }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 900, color: ui.text }}>{m.name}</div>
-                        <div style={{ color: ui.muted, fontSize: 12, fontWeight: 800 }}>{m.ingredients.length} items</div>
-                      </div>
-                      <div
-                        style={{
-                          fontWeight: 900,
-                          color: inBasket ? "#2A2A2A" : ui.brand,
-                          background: inBasket ? ui.pink : ui.accentSoft,
-                          border: `1px solid ${ui.border}`,
-                          borderRadius: 999,
-                          padding: "8px 10px",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {inBasket ? "Remove" : "Add"}
-                      </div>
-                    </button>
-                  )
-                })
-              )}
-            </div>
-          )}
         </div>
       </div>
 
@@ -553,7 +418,7 @@ export default function App() {
     <>
       <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
         <button
-          onClick={() => clearBasketOnly()}
+          onClick={clearBasketOnly}
           style={{
             borderRadius: 12,
             padding: "10px 12px",
@@ -752,12 +617,10 @@ export default function App() {
                   }}
                 >
                   <input checked={checked} onChange={(e) => setChecked(key, e.target.checked)} type="checkbox" />
-
                   <div style={{ flex: 1, fontWeight: 900, color: ui.text }}>{i.name}</div>
 
                   <button
                     onClick={() => bumpQty(key, i.quantity, -1)}
-                    aria-label="Decrease quantity"
                     style={{
                       width: 36,
                       height: 36,
@@ -808,7 +671,6 @@ export default function App() {
 
                   <button
                     onClick={() => bumpQty(key, i.quantity, +1)}
-                    aria-label="Increase quantity"
                     style={{
                       width: 36,
                       height: 36,
@@ -847,10 +709,6 @@ export default function App() {
         >
           Copy shopping list
         </button>
-
-        <p style={{ margin: "10px 0 0", color: ui.muted, fontSize: 12 }}>
-          Tip: quantities and ticks are saved automatically on this device.
-        </p>
       </div>
     )
   }
@@ -876,7 +734,6 @@ export default function App() {
               fontWeight: 900,
               cursor: "pointer",
               color: "#2A2A2A",
-              whiteSpace: "nowrap",
             }}
           >
             {theme === "dark" ? "On" : "Off"}
