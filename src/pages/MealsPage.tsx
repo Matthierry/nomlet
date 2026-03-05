@@ -1,6 +1,8 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Meal } from "../data/loadMeals";
 import type { UITheme } from "../styles/theme";
+
+const MEALS_SCROLL_KEY = "nomlet:scrollY:meals";
 
 export function MealsPage({
   meals,
@@ -49,6 +51,46 @@ export function MealsPage({
     return meals.filter((m) => m.name.toLowerCase().includes(queryLower));
   }, [meals, searchActive, queryLower]);
 
+  // ---------- Scroll position memory ----------
+  const restoreDoneRef = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
+
+  // Restore once on mount
+  useEffect(() => {
+    if (restoreDoneRef.current) return;
+
+    const raw = sessionStorage.getItem(MEALS_SCROLL_KEY);
+    const y = raw ? Number(raw) : 0;
+
+    // Defer until after initial paint so layout exists
+    requestAnimationFrame(() => {
+      if (Number.isFinite(y) && y > 0) {
+        window.scrollTo({ top: y, left: 0, behavior: "auto" });
+      }
+      restoreDoneRef.current = true;
+    });
+  }, []);
+
+  // Save on scroll (throttled with rAF)
+  useEffect(() => {
+    const onScroll = () => {
+      if (rafIdRef.current != null) return;
+      rafIdRef.current = window.requestAnimationFrame(() => {
+        sessionStorage.setItem(MEALS_SCROLL_KEY, String(window.scrollY || 0));
+        rafIdRef.current = null;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafIdRef.current != null) window.cancelAnimationFrame(rafIdRef.current);
+      // Save one last time on unmount
+      sessionStorage.setItem(MEALS_SCROLL_KEY, String(window.scrollY || 0));
+    };
+  }, []);
+
   return (
     <>
       {/* Sticky Search */}
@@ -60,7 +102,6 @@ export function MealsPage({
           background: ui.bg,
           paddingTop: 2,
           paddingBottom: 10,
-          // Makes it feel "native app" when scrolling under it
           backdropFilter: "blur(10px)",
         }}
       >
@@ -126,9 +167,7 @@ export function MealsPage({
             <input
               ref={searchInputRef}
               defaultValue=""
-              onInput={(e) =>
-                scheduleQueryUpdate((e.target as HTMLInputElement).value)
-              }
+              onInput={(e) => scheduleQueryUpdate((e.target as HTMLInputElement).value)}
               placeholder="Search meals…"
               inputMode="search"
               autoCorrect="off"
@@ -170,17 +209,8 @@ export function MealsPage({
           </div>
 
           {/* Info line (no "type 3 letters" instruction) */}
-          <div
-            style={{
-              marginTop: 10,
-              color: ui.muted,
-              fontSize: 13,
-              fontWeight: 800,
-            }}
-          >
-            {searchActive
-              ? `Showing ${mealListToShow.length} of ${meals.length}`
-              : `Showing ${meals.length} meals`}
+          <div style={{ marginTop: 10, color: ui.muted, fontSize: 13, fontWeight: 800 }}>
+            {searchActive ? `Showing ${mealListToShow.length} of ${meals.length}` : `Showing ${meals.length} meals`}
           </div>
         </div>
       </div>
@@ -188,17 +218,8 @@ export function MealsPage({
       {loading && <p style={{ color: ui.muted }}>Loading meals…</p>}
 
       {error && (
-        <div
-          style={{
-            background: ui.card,
-            padding: 12,
-            borderRadius: 12,
-            border: `1px solid ${ui.border}`,
-          }}
-        >
-          <p style={{ margin: 0, color: ui.pink, fontWeight: 900 }}>
-            Error: {error}
-          </p>
+        <div style={{ background: ui.card, padding: 12, borderRadius: 12, border: `1px solid ${ui.border}` }}>
+          <p style={{ margin: 0, color: ui.pink, fontWeight: 900 }}>Error: {error}</p>
         </div>
       )}
 
@@ -217,42 +238,15 @@ export function MealsPage({
                   border: `1px solid ${ui.border}`,
                 }}
               >
-                <img
-                  src={meal.imageUrl}
-                  alt=""
-                  style={{ width: "100%", height: 160, objectFit: "cover" }}
-                />
+                <img src={meal.imageUrl} alt="" style={{ width: "100%", height: 160, objectFit: "cover" }} />
                 <div style={{ padding: 14 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                    }}
-                  >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 900, color: ui.brand }}>
-                        {meal.name}
-                      </div>
-                      <div
-                        style={{
-                          marginTop: 4,
-                          color: ui.muted,
-                          fontSize: 13,
-                        }}
-                      >
-                        Calories: ??? • Serves 2
-                      </div>
+                      <div style={{ fontWeight: 900, color: ui.brand }}>{meal.name}</div>
+                      <div style={{ marginTop: 4, color: ui.muted, fontSize: 13 }}>Calories: ??? • Serves 2</div>
                     </div>
 
-                    <div
-                      style={{
-                        color: ui.accent,
-                        fontWeight: 900,
-                        alignSelf: "center",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
+                    <div style={{ color: ui.accent, fontWeight: 900, alignSelf: "center", whiteSpace: "nowrap" }}>
                       {meal.ingredients.length} items
                     </div>
                   </div>
