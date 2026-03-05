@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { loadMeals, type Meal } from "./data/loadMeals"
 import { canInstallPWA, installPWA } from "./pwa"
 
@@ -60,7 +60,6 @@ function ingredientKey(name: string, unit: string) {
 
 export default function App() {
   const [page, setPage] = useState<Page>("meals")
-
   const [theme, setTheme] = useState<Theme>(() => loadTheme())
 
   const [meals, setMeals] = useState<Meal[]>([])
@@ -68,18 +67,22 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
 
   const [basket, setBasket] = useState<string[]>(() => loadBasket())
-
   const [checks, setChecks] = useState<ChecksMap>(() => loadChecks())
   const [edits, setEdits] = useState<EditsMap>(() => loadEdits())
 
-  // NEW: meal search
+  // Search UX
   const [mealQuery, setMealQuery] = useState("")
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchWrapRef = useRef<HTMLDivElement | null>(null)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
 
+  // --- Persist
   useEffect(() => saveTheme(theme), [theme])
   useEffect(() => saveBasket(basket), [basket])
   useEffect(() => saveChecks(checks), [checks])
   useEffect(() => saveEdits(edits), [edits])
 
+  // --- Load meals
   useEffect(() => {
     ;(async () => {
       try {
@@ -93,6 +96,42 @@ export default function App() {
         setLoading(false)
       }
     })()
+  }, [])
+
+  // --- Close search suggestions on outside tap
+  useEffect(() => {
+    function onDown(e: MouseEvent | TouchEvent) {
+      const el = searchWrapRef.current
+      if (!el) return
+      if (e.target instanceof Node && !el.contains(e.target)) setSearchOpen(false)
+    }
+    document.addEventListener("mousedown", onDown)
+    document.addEventListener("touchstart", onDown, { passive: true })
+    return () => {
+      document.removeEventListener("mousedown", onDown)
+      document.removeEventListener("touchstart", onDown)
+    }
+  }, [])
+
+  // --- Fix “keyboard disappears / page jumps” on mobile
+  // Prevent browser auto-scroll/re-layout from stealing focus as DOM updates.
+  useEffect(() => {
+    const vv = (window as any).visualViewport as VisualViewport | undefined
+    if (!vv) return
+
+    const handle = () => {
+      // Only relevant when search is focused/open
+      if (document.activeElement === searchInputRef.current) {
+        // Keep suggestions open while typing
+        setSearchOpen(true)
+      }
+    }
+    vv.addEventListener("resize", handle)
+    vv.addEventListener("scroll", handle)
+    return () => {
+      vv.removeEventListener("resize", handle)
+      vv.removeEventListener("scroll", handle)
+    }
   }, [])
 
   const ui = useMemo(() => {
@@ -129,6 +168,14 @@ export default function App() {
     return theme === "dark" ? dark : light
   }, [theme])
 
+  // Apply background + prevent side gap/horizontal scroll globally
+  useEffect(() => {
+    document.documentElement.style.background = ui.bg
+    document.body.style.background = ui.bg
+    document.body.style.margin = "0"
+    document.body.style.overflowX = "hidden"
+  }, [ui.bg])
+
   const basketCount = basket.length
 
   const basketMeals = useMemo(() => {
@@ -149,88 +196,13 @@ export default function App() {
     setBasket([])
     setChecks({})
     setEdits({})
+    setMealQuery("")
+    setSearchOpen(false)
     setPage("meals")
   }
 
   function clearBasketOnly() {
     setBasket([])
-  }
-
-  const Shell = ({ children }: { children: React.ReactNode }) => {
-    const bottomNavHeight = 72
-    const extraForStickyCTA = page === "meals" && basketCount > 0 ? 74 : 0
-
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: ui.bg,
-          padding: 16,
-          paddingBottom: bottomNavHeight + 16 + extraForStickyCTA,
-          color: ui.text,
-        }}
-      >
-        <div style={{ maxWidth: 520, margin: "0 auto" }}>
-          <div style={{ marginBottom: 16 }}>
-            <h1 style={{ color: ui.brand, margin: 0, fontWeight: 900 }}>Nomlet</h1>
-            <p style={{ margin: "6px 0 0", color: ui.muted }}>Meals picked. Shop sorted.</p>
-          </div>
-
-          {children}
-        </div>
-
-        {/* Sticky CTA (Meals only) */}
-        {basketCount > 0 && page === "meals" && (
-          <div
-            style={{
-              position: "fixed",
-              left: 0,
-              right: 0,
-              bottom: bottomNavHeight,
-              padding: 12,
-              background: ui.navBg,
-              backdropFilter: "blur(10px)",
-              borderTop: `1px solid ${ui.navBorder}`,
-            }}
-          >
-            <div style={{ maxWidth: 520, margin: "0 auto", display: "flex", gap: 10 }}>
-              <button
-                onClick={() => setPage("basket")}
-                style={{
-                  flex: 1,
-                  borderRadius: 14,
-                  padding: "12px 14px",
-                  background: ui.brand,
-                  color: theme === "dark" ? "#1B1F1F" : "white",
-                  fontWeight: 900,
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                Review basket ({basketCount})
-              </button>
-
-              <button
-                onClick={clearBasketOnly}
-                style={{
-                  borderRadius: 14,
-                  padding: "12px 14px",
-                  background: ui.card,
-                  color: ui.brand,
-                  fontWeight: 900,
-                  border: `1px solid ${ui.border}`,
-                  cursor: "pointer",
-                }}
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        )}
-
-        <BottomNav />
-      </div>
-    )
   }
 
   const BottomNav = () => {
@@ -252,6 +224,7 @@ export default function App() {
           backdropFilter: "blur(10px)",
           borderTop: `1px solid ${ui.navBorder}`,
           padding: 10,
+          paddingBottom: 10,
         }}
       >
         <div style={{ maxWidth: 520, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
@@ -304,63 +277,216 @@ export default function App() {
     )
   }
 
-  // NEW: meals filtered by search
-  const filteredMeals = useMemo(() => {
-    const q = mealQuery.trim().toLowerCase()
-    if (!q) return meals
-    return meals.filter((m) => m.name.toLowerCase().includes(q))
-  }, [meals, mealQuery])
+  const Shell = ({ children }: { children: React.ReactNode }) => {
+    const bottomNavHeight = 72
+    return (
+      <div
+        style={{
+          minHeight: "100dvh",
+          background: ui.bg,
+          padding: 16,
+          paddingBottom: bottomNavHeight + 18,
+          color: ui.text,
+          overflowX: "hidden",
+        }}
+      >
+        <div style={{ maxWidth: 520, margin: "0 auto" }}>
+          <div style={{ marginBottom: 12 }}>
+            <h1 style={{ color: ui.brand, margin: 0, fontWeight: 900 }}>Nomlet</h1>
+            <p style={{ margin: "6px 0 0", color: ui.muted }}>Meals picked. Shop sorted.</p>
+          </div>
+
+          {children}
+        </div>
+
+        <BottomNav />
+      </div>
+    )
+  }
+
+  // Suggestion behaviour: only show results at 3+ characters
+  const queryTrim = mealQuery.trim()
+  const queryLower = queryTrim.toLowerCase()
+  const searchActive = queryTrim.length >= 3
+
+  const suggestions = useMemo(() => {
+    if (!searchActive) return []
+    const hits = meals.filter((m) => m.name.toLowerCase().includes(queryLower))
+    // Show best 10
+    return hits.slice(0, 10)
+  }, [meals, queryLower, searchActive])
+
+  const mealListToShow = useMemo(() => {
+    // When 3+ letters, filter the main list too (as requested)
+    if (!searchActive) return meals
+    return meals.filter((m) => m.name.toLowerCase().includes(queryLower))
+  }, [meals, queryLower, searchActive])
 
   const MealsPage = () => (
     <>
-      {/* NEW: Search box */}
+      {/* Sticky search */}
       <div
+        ref={searchWrapRef}
         style={{
-          background: ui.card,
-          borderRadius: 16,
-          padding: 12,
-          boxShadow: ui.shadow,
-          border: `1px solid ${ui.border}`,
+          position: "sticky",
+          top: 8,
+          zIndex: 20,
           marginBottom: 12,
         }}
       >
-        <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Find a meal</div>
-
-        <input
-          value={mealQuery}
-          onChange={(e) => setMealQuery(e.target.value)}
-          placeholder="Search meals…"
+        <div
           style={{
-            width: "100%",
-            padding: "12px 12px",
-            borderRadius: 12,
+            background: ui.card,
+            borderRadius: 16,
+            padding: 12,
+            boxShadow: ui.shadow,
             border: `1px solid ${ui.border}`,
-            background: ui.card2,
-            color: ui.text,
-            fontWeight: 800,
-            outline: "none",
           }}
-        />
+        >
+          <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Find a meal</div>
 
-        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-          <div style={{ color: ui.muted, fontSize: 13, fontWeight: 800, flex: 1 }}>
-            Showing {filteredMeals.length} of {meals.length}
-          </div>
-          {mealQuery.trim().length > 0 && (
-            <button
-              onClick={() => setMealQuery("")}
+          {/* Input row */}
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              background: ui.card2,
+              border: `1px solid ${ui.border}`,
+              borderRadius: 14,
+              padding: "10px 12px",
+              boxSizing: "border-box",
+              width: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <span style={{ color: ui.muted, fontWeight: 900 }}>🔎</span>
+
+            <input
+              ref={searchInputRef}
+              value={mealQuery}
+              onChange={(e) => setMealQuery(e.target.value)}
+              onFocus={() => setSearchOpen(true)}
+              placeholder="Search meals… (type 3+ letters)"
+              inputMode="search"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
               style={{
-                borderRadius: 12,
-                padding: "10px 12px",
+                flex: 1,
+                minWidth: 0,
+                border: "none",
+                background: "transparent",
+                color: ui.text,
+                fontWeight: 900,
+                outline: "none",
+                fontSize: 16, // prevents iOS zoom; fine on Android too
+              }}
+            />
+
+            {mealQuery.length > 0 && (
+              <button
+                onClick={() => {
+                  setMealQuery("")
+                  setSearchOpen(true)
+                  // keep focus so keyboard doesn't disappear
+                  requestAnimationFrame(() => searchInputRef.current?.focus())
+                }}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: ui.brand,
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: 10, marginTop: 10, alignItems: "center" }}>
+            <div style={{ color: ui.muted, fontSize: 13, fontWeight: 800, flex: 1 }}>
+              {searchActive ? (
+                <>Showing {mealListToShow.length} of {meals.length}</>
+              ) : (
+                <>Type at least 3 letters to search • Showing {meals.length} meals</>
+              )}
+            </div>
+          </div>
+
+          {/* Suggestions dropdown */}
+          {searchOpen && mealQuery.trim().length > 0 && (
+            <div
+              style={{
+                marginTop: 10,
                 background: ui.card,
                 border: `1px solid ${ui.border}`,
-                color: ui.brand,
-                fontWeight: 900,
-                cursor: "pointer",
+                borderRadius: 14,
+                overflow: "hidden",
               }}
             >
-              Clear
-            </button>
+              {!searchActive ? (
+                <div style={{ padding: 12, color: ui.muted, fontWeight: 800 }}>
+                  Keep typing… ({mealQuery.trim().length}/3)
+                </div>
+              ) : suggestions.length === 0 ? (
+                <div style={{ padding: 12, color: ui.muted, fontWeight: 800 }}>
+                  No matches for “{queryTrim}”
+                </div>
+              ) : (
+                suggestions.map((m) => {
+                  const inBasket = basket.includes(m.id)
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        toggleMeal(m.id)
+                        // keep the keyboard open by re-focusing input
+                        requestAnimationFrame(() => searchInputRef.current?.focus())
+                      }}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "12px 12px",
+                        background: "transparent",
+                        border: "none",
+                        borderBottom: `1px solid ${ui.border}`,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      <img
+                        src={m.imageUrl}
+                        alt=""
+                        style={{ width: 38, height: 38, borderRadius: 12, objectFit: "cover", border: `1px solid ${ui.border}` }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 900, color: ui.text }}>{m.name}</div>
+                        <div style={{ color: ui.muted, fontSize: 12, fontWeight: 800 }}>{m.ingredients.length} items</div>
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 900,
+                          color: inBasket ? "#2A2A2A" : ui.brand,
+                          background: inBasket ? ui.pink : ui.accentSoft,
+                          border: `1px solid ${ui.border}`,
+                          borderRadius: 999,
+                          padding: "8px 10px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {inBasket ? "Remove" : "Add"}
+                      </div>
+                    </button>
+                  )
+                })
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -375,7 +501,7 @@ export default function App() {
 
       {!loading && !error && (
         <div style={{ display: "grid", gap: 12 }}>
-          {filteredMeals.map((meal) => {
+          {mealListToShow.map((meal) => {
             const inBasket = basket.includes(meal.id)
             return (
               <div
@@ -422,7 +548,7 @@ export default function App() {
             )
           })}
 
-          {!loading && filteredMeals.length === 0 && (
+          {!loading && searchActive && mealListToShow.length === 0 && (
             <div style={{ background: ui.card, borderRadius: 16, padding: 14, border: `1px solid ${ui.border}` }}>
               <div style={{ fontWeight: 900, color: ui.brand }}>No meals found</div>
               <p style={{ margin: "6px 0 0", color: ui.muted }}>Try a different search term.</p>
@@ -537,7 +663,6 @@ export default function App() {
   )
 
   const ListPage = () => {
-    // Build merged ingredients
     const ingredientMap: Record<string, { name: string; quantity: number; unit: string }> = {}
 
     basketMeals.forEach((meal) => {
@@ -559,7 +684,6 @@ export default function App() {
       setEdits((prev) => ({ ...prev, [key]: safe < 0 ? 0 : safe }))
     }
 
-    // NEW: +/- helpers
     function bumpQty(key: string, current: number, delta: number) {
       const next = Math.max(0, (Number.isFinite(current) ? current : 0) + delta)
       setEditedQty(key, next)
@@ -625,7 +749,6 @@ export default function App() {
 
                   <div style={{ flex: 1, fontWeight: 900, color: ui.text }}>{i.name}</div>
 
-                  {/* NEW: minus */}
                   <button
                     onClick={() => bumpQty(key, qty, -1)}
                     aria-label="Decrease quantity"
@@ -643,12 +766,12 @@ export default function App() {
                     –
                   </button>
 
-                  {/* Editable number input stays */}
                   <input
                     value={qty}
                     onChange={(e) => setEditedQty(key, Number(e.target.value))}
                     type="number"
                     min={0}
+                    inputMode="numeric"
                     style={{
                       width: 72,
                       padding: "6px 8px",
@@ -661,7 +784,6 @@ export default function App() {
                     }}
                   />
 
-                  {/* NEW: plus */}
                   <button
                     onClick={() => bumpQty(key, qty, +1)}
                     aria-label="Increase quantity"
@@ -739,7 +861,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* OPTIONAL: Install button appears only when available */}
         <button
           onClick={async () => {
             const ok = await installPWA()
