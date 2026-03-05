@@ -70,19 +70,28 @@ export default function App() {
   const [checks, setChecks] = useState<ChecksMap>(() => loadChecks())
   const [edits, setEdits] = useState<EditsMap>(() => loadEdits())
 
-  // Search UX
+  // ---- SEARCH (keyboard-safe)
+  // UI value (what you type) - updates instantly
+  const [mealQueryUI, setMealQueryUI] = useState("")
+  // Debounced value used for filtering/suggestions (reduces DOM churn)
   const [mealQuery, setMealQuery] = useState("")
   const [searchOpen, setSearchOpen] = useState(false)
   const searchWrapRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
-  // --- Persist
+  // ---- LIST EDITS (keyboard-safe)
+  // live values updated while typing WITHOUT causing React re-render
+  const liveEditsRef = useRef<Record<string, number>>({})
+  // refs so +/- can update the visible input value instantly
+  const qtyInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  // Persist
   useEffect(() => saveTheme(theme), [theme])
   useEffect(() => saveBasket(basket), [basket])
   useEffect(() => saveChecks(checks), [checks])
   useEffect(() => saveEdits(edits), [edits])
 
-  // --- Load meals
+  // Load meals
   useEffect(() => {
     ;(async () => {
       try {
@@ -98,7 +107,13 @@ export default function App() {
     })()
   }, [])
 
-  // --- Close search suggestions on outside tap
+  // Debounce search so typing doesn’t constantly re-filter/repaint the page
+  useEffect(() => {
+    const t = window.setTimeout(() => setMealQuery(mealQueryUI), 160)
+    return () => window.clearTimeout(t)
+  }, [mealQueryUI])
+
+  // Close search on outside tap
   useEffect(() => {
     function onDown(e: MouseEvent | TouchEvent) {
       const el = searchWrapRef.current
@@ -110,27 +125,6 @@ export default function App() {
     return () => {
       document.removeEventListener("mousedown", onDown)
       document.removeEventListener("touchstart", onDown)
-    }
-  }, [])
-
-  // --- Fix “keyboard disappears / page jumps” on mobile
-  // Prevent browser auto-scroll/re-layout from stealing focus as DOM updates.
-  useEffect(() => {
-    const vv = (window as any).visualViewport as VisualViewport | undefined
-    if (!vv) return
-
-    const handle = () => {
-      // Only relevant when search is focused/open
-      if (document.activeElement === searchInputRef.current) {
-        // Keep suggestions open while typing
-        setSearchOpen(true)
-      }
-    }
-    vv.addEventListener("resize", handle)
-    vv.addEventListener("scroll", handle)
-    return () => {
-      vv.removeEventListener("resize", handle)
-      vv.removeEventListener("scroll", handle)
     }
   }, [])
 
@@ -168,12 +162,16 @@ export default function App() {
     return theme === "dark" ? dark : light
   }, [theme])
 
-  // Apply background + prevent side gap/horizontal scroll globally
+  // Global background + remove side gap / horizontal scroll
   useEffect(() => {
-    document.documentElement.style.background = ui.bg
-    document.body.style.background = ui.bg
-    document.body.style.margin = "0"
-    document.body.style.overflowX = "hidden"
+    const setStyle = (el: HTMLElement, s: Partial<CSSStyleDeclaration>) => Object.assign(el.style, s)
+    setStyle(document.documentElement, { background: ui.bg })
+    setStyle(document.body, {
+      background: ui.bg,
+      margin: "0",
+      overflowX: "hidden",
+      width: "100%",
+    })
   }, [ui.bg])
 
   const basketCount = basket.length
@@ -196,6 +194,8 @@ export default function App() {
     setBasket([])
     setChecks({})
     setEdits({})
+    liveEditsRef.current = {}
+    setMealQueryUI("")
     setMealQuery("")
     setSearchOpen(false)
     setPage("meals")
@@ -224,7 +224,6 @@ export default function App() {
           backdropFilter: "blur(10px)",
           borderTop: `1px solid ${ui.navBorder}`,
           padding: 10,
-          paddingBottom: 10,
         }}
       >
         <div style={{ maxWidth: 520, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
@@ -277,63 +276,48 @@ export default function App() {
     )
   }
 
-  const Shell = ({ children }: { children: React.ReactNode }) => {
-    const bottomNavHeight = 72
-    return (
-      <div
-        style={{
-          minHeight: "100dvh",
-          background: ui.bg,
-          padding: 16,
-          paddingBottom: bottomNavHeight + 18,
-          color: ui.text,
-          overflowX: "hidden",
-        }}
-      >
-        <div style={{ maxWidth: 520, margin: "0 auto" }}>
-          <div style={{ marginBottom: 12 }}>
-            <h1 style={{ color: ui.brand, margin: 0, fontWeight: 900 }}>Nomlet</h1>
-            <p style={{ margin: "6px 0 0", color: ui.muted }}>Meals picked. Shop sorted.</p>
-          </div>
-
-          {children}
+  const Shell = ({ children }: { children: React.ReactNode }) => (
+    <div
+      style={{
+        minHeight: "100dvh",
+        background: ui.bg,
+        padding: 16,
+        paddingBottom: 72 + 18,
+        color: ui.text,
+        overflowX: "hidden",
+      }}
+    >
+      <div style={{ maxWidth: 520, margin: "0 auto" }}>
+        <div style={{ marginBottom: 12 }}>
+          <h1 style={{ color: ui.brand, margin: 0, fontWeight: 900 }}>Nomlet</h1>
+          <p style={{ margin: "6px 0 0", color: ui.muted }}>Meals picked. Shop sorted.</p>
         </div>
 
-        <BottomNav />
+        {children}
       </div>
-    )
-  }
 
-  // Suggestion behaviour: only show results at 3+ characters
+      <BottomNav />
+    </div>
+  )
+
+  // 3+ letters rule
   const queryTrim = mealQuery.trim()
   const queryLower = queryTrim.toLowerCase()
   const searchActive = queryTrim.length >= 3
 
   const suggestions = useMemo(() => {
     if (!searchActive) return []
-    const hits = meals.filter((m) => m.name.toLowerCase().includes(queryLower))
-    // Show best 10
-    return hits.slice(0, 10)
+    return meals.filter((m) => m.name.toLowerCase().includes(queryLower)).slice(0, 10)
   }, [meals, queryLower, searchActive])
 
   const mealListToShow = useMemo(() => {
-    // When 3+ letters, filter the main list too (as requested)
     if (!searchActive) return meals
     return meals.filter((m) => m.name.toLowerCase().includes(queryLower))
   }, [meals, queryLower, searchActive])
 
   const MealsPage = () => (
     <>
-      {/* Sticky search */}
-      <div
-        ref={searchWrapRef}
-        style={{
-          position: "sticky",
-          top: 8,
-          zIndex: 20,
-          marginBottom: 12,
-        }}
-      >
+      <div ref={searchWrapRef} style={{ marginBottom: 12 }}>
         <div
           style={{
             background: ui.card,
@@ -345,7 +329,6 @@ export default function App() {
         >
           <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Find a meal</div>
 
-          {/* Input row */}
           <div
             style={{
               display: "flex",
@@ -364,8 +347,8 @@ export default function App() {
 
             <input
               ref={searchInputRef}
-              value={mealQuery}
-              onChange={(e) => setMealQuery(e.target.value)}
+              value={mealQueryUI}
+              onChange={(e) => setMealQueryUI(e.target.value)}
               onFocus={() => setSearchOpen(true)}
               placeholder="Search meals… (type 3+ letters)"
               inputMode="search"
@@ -380,16 +363,15 @@ export default function App() {
                 color: ui.text,
                 fontWeight: 900,
                 outline: "none",
-                fontSize: 16, // prevents iOS zoom; fine on Android too
+                fontSize: 16,
               }}
             />
 
-            {mealQuery.length > 0 && (
+            {mealQueryUI.length > 0 && (
               <button
                 onClick={() => {
-                  setMealQuery("")
+                  setMealQueryUI("")
                   setSearchOpen(true)
-                  // keep focus so keyboard doesn't disappear
                   requestAnimationFrame(() => searchInputRef.current?.focus())
                 }}
                 style={{
@@ -417,8 +399,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Suggestions dropdown */}
-          {searchOpen && mealQuery.trim().length > 0 && (
+          {searchOpen && mealQueryUI.trim().length > 0 && (
             <div
               style={{
                 marginTop: 10,
@@ -430,7 +411,7 @@ export default function App() {
             >
               {!searchActive ? (
                 <div style={{ padding: 12, color: ui.muted, fontWeight: 800 }}>
-                  Keep typing… ({mealQuery.trim().length}/3)
+                  Keep typing… ({mealQueryUI.trim().length}/3)
                 </div>
               ) : suggestions.length === 0 ? (
                 <div style={{ padding: 12, color: ui.muted, fontWeight: 800 }}>
@@ -444,7 +425,6 @@ export default function App() {
                       key={m.id}
                       onClick={() => {
                         toggleMeal(m.id)
-                        // keep the keyboard open by re-focusing input
                         requestAnimationFrame(() => searchInputRef.current?.focus())
                       }}
                       style={{
@@ -547,13 +527,6 @@ export default function App() {
               </div>
             )
           })}
-
-          {!loading && searchActive && mealListToShow.length === 0 && (
-            <div style={{ background: ui.card, borderRadius: 16, padding: 14, border: `1px solid ${ui.border}` }}>
-              <div style={{ fontWeight: 900, color: ui.brand }}>No meals found</div>
-              <p style={{ margin: "6px 0 0", color: ui.muted }}>Try a different search term.</p>
-            </div>
-          )}
         </div>
       )}
     </>
@@ -679,21 +652,37 @@ export default function App() {
       setChecks((prev) => ({ ...prev, [key]: value }))
     }
 
-    function setEditedQty(key: string, value: number) {
-      const safe = Number.isFinite(value) ? value : 0
-      setEdits((prev) => ({ ...prev, [key]: safe < 0 ? 0 : safe }))
+    function commitQty(key: string, qty: number) {
+      const safe = Number.isFinite(qty) ? Math.max(0, qty) : 0
+      setEdits((prev) => ({ ...prev, [key]: safe }))
     }
 
-    function bumpQty(key: string, current: number, delta: number) {
-      const next = Math.max(0, (Number.isFinite(current) ? current : 0) + delta)
-      setEditedQty(key, next)
+    function getCurrentQty(key: string, fallback: number) {
+      const live = liveEditsRef.current[key]
+      if (typeof live === "number" && Number.isFinite(live)) return live
+      const saved = edits[key]
+      if (typeof saved === "number" && Number.isFinite(saved)) return saved
+      return fallback
+    }
+
+    function setInputValue(key: string, value: number) {
+      const el = qtyInputRefs.current[key]
+      if (el) el.value = String(value)
+      liveEditsRef.current[key] = value
+      commitQty(key, value)
+    }
+
+    function bumpQty(key: string, fallback: number, delta: number) {
+      const current = getCurrentQty(key, fallback)
+      const next = Math.max(0, current + delta)
+      setInputValue(key, next)
     }
 
     function copyList() {
       const text = ingredients
         .map((i) => {
           const key = ingredientKey(i.name, i.unit)
-          const qty = typeof edits[key] === "number" ? edits[key] : i.quantity
+          const qty = getCurrentQty(key, i.quantity)
           return `${i.name} — ${qty} ${i.unit}`.trim()
         })
         .join("\n")
@@ -731,7 +720,7 @@ export default function App() {
             {ingredients.map((i) => {
               const key = ingredientKey(i.name, i.unit)
               const checked = !!checks[key]
-              const qty = typeof edits[key] === "number" ? edits[key] : i.quantity
+              const startQty = typeof edits[key] === "number" ? edits[key] : i.quantity
 
               return (
                 <div
@@ -750,7 +739,7 @@ export default function App() {
                   <div style={{ flex: 1, fontWeight: 900, color: ui.text }}>{i.name}</div>
 
                   <button
-                    onClick={() => bumpQty(key, qty, -1)}
+                    onClick={() => bumpQty(key, i.quantity, -1)}
                     aria-label="Decrease quantity"
                     style={{
                       width: 36,
@@ -766,9 +755,25 @@ export default function App() {
                     –
                   </button>
 
+                  {/* Uncontrolled input: does NOT re-render on each keystroke */}
                   <input
-                    value={qty}
-                    onChange={(e) => setEditedQty(key, Number(e.target.value))}
+                    defaultValue={startQty}
+                    ref={(el) => (qtyInputRefs.current[key] = el)}
+                    onFocus={() => {
+                      // keep a live value in sync when you start typing
+                      liveEditsRef.current[key] = getCurrentQty(key, i.quantity)
+                    }}
+                    onChange={(e) => {
+                      const v = Number(e.target.value)
+                      liveEditsRef.current[key] = Number.isFinite(v) ? v : 0
+                    }}
+                    onBlur={() => {
+                      const v = liveEditsRef.current[key]
+                      commitQty(key, typeof v === "number" ? v : startQty)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur()
+                    }}
                     type="number"
                     min={0}
                     inputMode="numeric"
@@ -785,7 +790,7 @@ export default function App() {
                   />
 
                   <button
-                    onClick={() => bumpQty(key, qty, +1)}
+                    onClick={() => bumpQty(key, i.quantity, +1)}
                     aria-label="Increase quantity"
                     style={{
                       width: 36,
