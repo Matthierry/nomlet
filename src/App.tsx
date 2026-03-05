@@ -70,10 +70,10 @@ export default function App() {
   const [checks, setChecks] = useState<ChecksMap>(() => loadChecks())
   const [edits, setEdits] = useState<EditsMap>(() => loadEdits())
 
-  // -------- Search (simple, no dropdown, no outside click, no open/close state) --------
+  // ---------- Search (simple, stable) ----------
   const searchInputRef = useRef<HTMLInputElement | null>(null)
-  const [query, setQuery] = useState("") // debounced query used for filtering
-  const [queryUI, setQueryUI] = useState("") // debounced for UI (clear button / helper)
+  const [query, setQuery] = useState("")
+  const [queryUI, setQueryUI] = useState("")
   const debounceTimer = useRef<number | null>(null)
 
   function scheduleQueryUpdate(next: string) {
@@ -81,7 +81,7 @@ export default function App() {
     debounceTimer.current = window.setTimeout(() => {
       setQuery(next)
       setQueryUI(next)
-    }, 180)
+    }, 120)
   }
 
   function clearSearch() {
@@ -198,7 +198,7 @@ export default function App() {
     return meals.filter((m) => m.name.toLowerCase().includes(queryLower))
   }, [meals, searchActive, queryLower])
 
-  const BottomNav = () => {
+  function renderBottomNav() {
     const items: { id: Page; label: string; badge?: number }[] = [
       { id: "meals", label: "Meals" },
       { id: "basket", label: "Basket", badge: basketCount },
@@ -269,255 +269,263 @@ export default function App() {
     )
   }
 
-  const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div
-      style={{
-        minHeight: "100dvh",
-        background: ui.bg,
-        padding: 16,
-        paddingBottom: 72 + 18,
-        color: ui.text,
-        overflowX: "hidden",
-      }}
-    >
-      <div style={{ maxWidth: 520, margin: "0 auto" }}>
+  function renderShell(children: React.ReactNode) {
+    return (
+      <div
+        style={{
+          minHeight: "100dvh",
+          background: ui.bg,
+          padding: 16,
+          paddingBottom: 72 + 18,
+          color: ui.text,
+          overflowX: "hidden",
+        }}
+      >
+        <div style={{ maxWidth: 520, margin: "0 auto" }}>
+          <div style={{ marginBottom: 12 }}>
+            <h1 style={{ color: ui.brand, margin: 0, fontWeight: 900 }}>Nomlet</h1>
+            <p style={{ margin: "6px 0 0", color: ui.muted }}>Meals picked. Shop sorted.</p>
+          </div>
+          {children}
+        </div>
+
+        {renderBottomNav()}
+      </div>
+    )
+  }
+
+  function renderMealsPage() {
+    return (
+      <>
         <div style={{ marginBottom: 12 }}>
-          <h1 style={{ color: ui.brand, margin: 0, fontWeight: 900 }}>Nomlet</h1>
-          <p style={{ margin: "6px 0 0", color: ui.muted }}>Meals picked. Shop sorted.</p>
-        </div>
+          <div style={{ background: ui.card, borderRadius: 16, padding: 12, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
+            <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Find a meal</div>
 
-        {children}
-      </div>
-
-      <BottomNav />
-    </div>
-  )
-
-  const MealsPage = () => (
-    <>
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ background: ui.card, borderRadius: 16, padding: 12, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
-          <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Find a meal</div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-              background: ui.card2,
-              border: `1px solid ${ui.border}`,
-              borderRadius: 14,
-              padding: "10px 12px",
-              width: "100%",
-              overflow: "hidden",
-              boxSizing: "border-box",
-            }}
-          >
-            <span style={{ color: ui.muted, fontWeight: 900 }}>🔎</span>
-
-            <input
-              ref={searchInputRef}
-              defaultValue=""
-              onInput={(e) => scheduleQueryUpdate((e.target as HTMLInputElement).value)}
-              placeholder="Search meals… (type 3+ letters)"
-              inputMode="search"
-              autoCorrect="off"
-              autoCapitalize="none"
-              spellCheck={false}
+            <div
               style={{
-                flex: 1,
-                minWidth: 0,
-                border: "none",
-                background: "transparent",
-                color: ui.text,
-                fontWeight: 900,
-                outline: "none",
-                fontSize: 16,
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                background: ui.card2,
+                border: `1px solid ${ui.border}`,
+                borderRadius: 14,
+                padding: "10px 12px",
+                width: "100%",
+                overflow: "hidden",
+                boxSizing: "border-box",
               }}
-            />
+            >
+              <span style={{ color: ui.muted, fontWeight: 900 }}>🔎</span>
 
-            {queryUI.length > 0 && (
-              <button
-                onClick={clearSearch}
-                style={{ border: "none", background: "transparent", color: ui.brand, fontWeight: 900, cursor: "pointer", padding: 0 }}
-                aria-label="Clear search"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          <div style={{ marginTop: 10, color: ui.muted, fontSize: 13, fontWeight: 800 }}>
-            {searchActive ? `Showing ${mealListToShow.length} of ${meals.length}` : `Type at least 3 letters • Showing ${meals.length} meals`}
-          </div>
-        </div>
-      </div>
-
-      {loading && <p style={{ color: ui.muted }}>Loading meals…</p>}
-
-      {error && (
-        <div style={{ background: ui.card, padding: 12, borderRadius: 12, border: `1px solid ${ui.border}` }}>
-          <p style={{ margin: 0, color: ui.pink, fontWeight: 900 }}>Error: {error}</p>
-        </div>
-      )}
-
-      {!loading && !error && (
-        <div style={{ display: "grid", gap: 12 }}>
-          {mealListToShow.map((meal) => {
-            const inBasket = basket.includes(meal.id)
-            return (
-              <div
-                key={meal.id}
+              <input
+                ref={searchInputRef}
+                defaultValue=""
+                onInput={(e) => scheduleQueryUpdate((e.target as HTMLInputElement).value)}
+                placeholder="Search meals… (type 3+ letters)"
+                inputMode="search"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 style={{
-                  background: ui.card,
-                  borderRadius: 16,
-                  overflow: "hidden",
-                  boxShadow: ui.shadow,
-                  border: `1px solid ${ui.border}`,
+                  flex: 1,
+                  minWidth: 0,
+                  border: "none",
+                  background: "transparent",
+                  color: ui.text,
+                  fontWeight: 900,
+                  outline: "none",
+                  fontSize: 16,
                 }}
-              >
-                <img src={meal.imageUrl} alt="" style={{ width: "100%", height: 160, objectFit: "cover" }} />
-                <div style={{ padding: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 900, color: ui.brand }}>{meal.name}</div>
-                      <div style={{ marginTop: 4, color: ui.muted, fontSize: 13 }}>Calories: ??? • Serves 2</div>
-                    </div>
+              />
 
-                    <div style={{ color: ui.accent, fontWeight: 900, alignSelf: "center", whiteSpace: "nowrap" }}>
-                      {meal.ingredients.length} items
-                    </div>
-                  </div>
-
+              {/* Always render this container so DOM doesn't jump */}
+              <div style={{ width: 26, display: "flex", justifyContent: "flex-end" }}>
+                {queryUI.length > 0 && (
                   <button
-                    onClick={() => toggleMeal(meal.id)}
-                    style={{
-                      marginTop: 12,
-                      width: "100%",
-                      borderRadius: 12,
-                      padding: "10px 12px",
-                      border: `1px solid ${ui.border}`,
-                      fontWeight: 900,
-                      background: inBasket ? ui.pink : ui.accentSoft,
-                      color: "#2a2a2a",
-                      cursor: "pointer",
-                    }}
+                    onClick={clearSearch}
+                    style={{ border: "none", background: "transparent", color: ui.brand, fontWeight: 900, cursor: "pointer", padding: 0 }}
+                    aria-label="Clear search"
                   >
-                    {inBasket ? "Remove from basket" : "Add to basket"}
+                    ✕
                   </button>
-                </div>
+                )}
               </div>
-            )
-          })}
+            </div>
+
+            <div style={{ marginTop: 10, color: ui.muted, fontSize: 13, fontWeight: 800 }}>
+              {searchActive ? `Showing ${mealListToShow.length} of ${meals.length}` : `Type at least 3 letters • Showing ${meals.length} meals`}
+            </div>
+          </div>
         </div>
-      )}
-    </>
-  )
 
-  const BasketPage = () => (
-    <>
-      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-        <button
-          onClick={clearBasketOnly}
-          style={{
-            borderRadius: 12,
-            padding: "10px 12px",
-            background: ui.card,
-            border: `1px solid ${ui.border}`,
-            color: ui.brand,
-            fontWeight: 900,
-            cursor: "pointer",
-          }}
-        >
-          Clear basket
-        </button>
+        {loading && <p style={{ color: ui.muted }}>Loading meals…</p>}
 
-        <div style={{ flex: 1 }} />
-
-        <button
-          onClick={clearAll}
-          style={{
-            borderRadius: 12,
-            padding: "10px 12px",
-            background: ui.card,
-            border: `1px solid ${ui.border}`,
-            color: ui.brand,
-            fontWeight: 900,
-            cursor: "pointer",
-          }}
-        >
-          Clear all
-        </button>
-      </div>
-
-      <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
-        <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Review basket</div>
-
-        {basketMeals.length === 0 ? (
-          <p style={{ margin: 0, color: ui.muted }}>Your basket is empty.</p>
-        ) : (
-          <div style={{ display: "grid", gap: 10 }}>
-            {basketMeals.map((m) => (
-              <div
-                key={m.id}
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  alignItems: "center",
-                  padding: 10,
-                  borderRadius: 12,
-                  background: ui.card2,
-                  border: `1px solid ${ui.border}`,
-                }}
-              >
-                <img src={m.imageUrl} alt="" style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover" }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 900, color: ui.brand }}>{m.name}</div>
-                  <div style={{ color: ui.muted, fontSize: 13 }}>Serves 2 • Calories ???</div>
-                </div>
-
-                <button
-                  onClick={() => toggleMeal(m.id)}
-                  style={{
-                    borderRadius: 12,
-                    padding: "10px 12px",
-                    background: ui.pink,
-                    border: `1px solid ${ui.border}`,
-                    color: "#2a2a2a",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
+        {error && (
+          <div style={{ background: ui.card, padding: 12, borderRadius: 12, border: `1px solid ${ui.border}` }}>
+            <p style={{ margin: 0, color: ui.pink, fontWeight: 900 }}>Error: {error}</p>
           </div>
         )}
 
-        <button
-          onClick={() => setPage("list")}
-          disabled={basketMeals.length === 0}
-          style={{
-            marginTop: 14,
-            width: "100%",
-            borderRadius: 14,
-            padding: "12px 14px",
-            background: basketMeals.length === 0 ? "rgba(93,107,107,0.35)" : ui.brand,
-            color: theme === "dark" ? "#1B1F1F" : "white",
-            fontWeight: 900,
-            border: "none",
-            cursor: basketMeals.length === 0 ? "not-allowed" : "pointer",
-          }}
-        >
-          Continue to list
-        </button>
-      </div>
-    </>
-  )
+        {!loading && !error && (
+          <div style={{ display: "grid", gap: 12 }}>
+            {mealListToShow.map((meal) => {
+              const inBasket = basket.includes(meal.id)
+              return (
+                <div
+                  key={meal.id}
+                  style={{
+                    background: ui.card,
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    boxShadow: ui.shadow,
+                    border: `1px solid ${ui.border}`,
+                  }}
+                >
+                  <img src={meal.imageUrl} alt="" style={{ width: "100%", height: 160, objectFit: "cover" }} />
+                  <div style={{ padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 900, color: ui.brand }}>{meal.name}</div>
+                        <div style={{ marginTop: 4, color: ui.muted, fontSize: 13 }}>Calories: ??? • Serves 2</div>
+                      </div>
 
-  const ListPage = () => {
+                      <div style={{ color: ui.accent, fontWeight: 900, alignSelf: "center", whiteSpace: "nowrap" }}>
+                        {meal.ingredients.length} items
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => toggleMeal(meal.id)}
+                      style={{
+                        marginTop: 12,
+                        width: "100%",
+                        borderRadius: 12,
+                        padding: "10px 12px",
+                        border: `1px solid ${ui.border}`,
+                        fontWeight: 900,
+                        background: inBasket ? ui.pink : ui.accentSoft,
+                        color: "#2a2a2a",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {inBasket ? "Remove from basket" : "Add to basket"}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </>
+    )
+  }
+
+  function renderBasketPage() {
+    return (
+      <>
+        <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+          <button
+            onClick={clearBasketOnly}
+            style={{
+              borderRadius: 12,
+              padding: "10px 12px",
+              background: ui.card,
+              border: `1px solid ${ui.border}`,
+              color: ui.brand,
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            Clear basket
+          </button>
+
+          <div style={{ flex: 1 }} />
+
+          <button
+            onClick={clearAll}
+            style={{
+              borderRadius: 12,
+              padding: "10px 12px",
+              background: ui.card,
+              border: `1px solid ${ui.border}`,
+              color: ui.brand,
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            Clear all
+          </button>
+        </div>
+
+        <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
+          <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Review basket</div>
+
+          {basketMeals.length === 0 ? (
+            <p style={{ margin: 0, color: ui.muted }}>Your basket is empty.</p>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {basketMeals.map((m) => (
+                <div
+                  key={m.id}
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                    padding: 10,
+                    borderRadius: 12,
+                    background: ui.card2,
+                    border: `1px solid ${ui.border}`,
+                  }}
+                >
+                  <img src={m.imageUrl} alt="" style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover" }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 900, color: ui.brand }}>{m.name}</div>
+                    <div style={{ color: ui.muted, fontSize: 13 }}>Serves 2 • Calories ???</div>
+                  </div>
+
+                  <button
+                    onClick={() => toggleMeal(m.id)}
+                    style={{
+                      borderRadius: 12,
+                      padding: "10px 12px",
+                      background: ui.pink,
+                      border: `1px solid ${ui.border}`,
+                      color: "#2a2a2a",
+                      fontWeight: 900,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={() => setPage("list")}
+            disabled={basketMeals.length === 0}
+            style={{
+              marginTop: 14,
+              width: "100%",
+              borderRadius: 14,
+              padding: "12px 14px",
+              background: basketMeals.length === 0 ? "rgba(93,107,107,0.35)" : ui.brand,
+              color: theme === "dark" ? "#1B1F1F" : "white",
+              fontWeight: 900,
+              border: "none",
+              cursor: basketMeals.length === 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            Continue to list
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  function renderListPage() {
     const ingredientMap: Record<string, { name: string; quantity: number; unit: string }> = {}
 
     basketMeals.forEach((meal) => {
@@ -713,87 +721,85 @@ export default function App() {
     )
   }
 
-  const SettingsPage = () => (
-    <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
-        <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Appearance</div>
+  function renderSettingsPage() {
+    return (
+      <div style={{ display: "grid", gap: 12 }}>
+        <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
+          <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Appearance</div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <div>
-            <div style={{ fontWeight: 900, color: ui.text }}>Dark mode</div>
-            <div style={{ color: ui.muted, fontSize: 13 }}>Default is light mode</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div>
+              <div style={{ fontWeight: 900, color: ui.text }}>Dark mode</div>
+              <div style={{ color: ui.muted, fontSize: 13 }}>Default is light mode</div>
+            </div>
+
+            <button
+              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+              style={{
+                borderRadius: 999,
+                padding: "10px 14px",
+                background: theme === "dark" ? ui.pink : ui.accentSoft,
+                border: `1px solid ${ui.border}`,
+                fontWeight: 900,
+                cursor: "pointer",
+                color: "#2A2A2A",
+              }}
+            >
+              {theme === "dark" ? "On" : "Off"}
+            </button>
           </div>
 
           <button
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            onClick={async () => {
+              const ok = await installPWA()
+              if (!ok) alert("Install isn’t available yet. Try Chrome, refresh once, then open Settings again.")
+            }}
             style={{
-              borderRadius: 999,
-              padding: "10px 14px",
-              background: theme === "dark" ? ui.pink : ui.accentSoft,
-              border: `1px solid ${ui.border}`,
+              width: "100%",
+              borderRadius: 14,
+              padding: "12px 14px",
+              background: ui.brand,
+              color: theme === "dark" ? "#1B1F1F" : "white",
               fontWeight: 900,
+              border: "none",
               cursor: "pointer",
-              color: "#2A2A2A",
+              marginTop: 12,
+              display: canInstallPWA() ? "block" : "none",
             }}
           >
-            {theme === "dark" ? "On" : "Off"}
+            Install Nomlet
           </button>
         </div>
 
-        <button
-          onClick={async () => {
-            const ok = await installPWA()
-            if (!ok) alert("Install isn’t available yet. Try Chrome, refresh once, then open Settings again.")
-          }}
-          style={{
-            width: "100%",
-            borderRadius: 14,
-            padding: "12px 14px",
-            background: ui.brand,
-            color: theme === "dark" ? "#1B1F1F" : "white",
-            fontWeight: 900,
-            border: "none",
-            cursor: "pointer",
-            marginTop: 12,
-            display: canInstallPWA() ? "block" : "none",
-          }}
-        >
-          Install Nomlet
-        </button>
-      </div>
+        <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
+          <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Request meals</div>
+          <p style={{ margin: 0, color: ui.muted }}>The ability to request meals to be added to the site will come soon.</p>
+        </div>
 
-      <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
-        <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Request meals</div>
-        <p style={{ margin: 0, color: ui.muted }}>The ability to request meals to be added to the site will come soon.</p>
+        <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
+          <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Reset</div>
+          <button
+            onClick={clearAll}
+            style={{
+              width: "100%",
+              borderRadius: 14,
+              padding: "12px 14px",
+              background: ui.brand,
+              color: theme === "dark" ? "#1B1F1F" : "white",
+              fontWeight: 900,
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Clear all data
+          </button>
+        </div>
       </div>
+    )
+  }
 
-      <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
-        <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Reset</div>
-        <button
-          onClick={clearAll}
-          style={{
-            width: "100%",
-            borderRadius: 14,
-            padding: "12px 14px",
-            background: ui.brand,
-            color: theme === "dark" ? "#1B1F1F" : "white",
-            fontWeight: 900,
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Clear all data
-        </button>
-      </div>
-    </div>
-  )
+  const content =
+    page === "meals" ? renderMealsPage() : page === "basket" ? renderBasketPage() : page === "list" ? renderListPage() : renderSettingsPage()
 
-  return (
-    <Shell>
-      {page === "meals" && <MealsPage />}
-      {page === "basket" && <BasketPage />}
-      {page === "list" && <ListPage />}
-      {page === "settings" && <SettingsPage />}
-    </Shell>
-  )
+  return renderShell(content)
 }
