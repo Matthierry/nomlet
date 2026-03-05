@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { loadMeals, type Meal } from "./data/loadMeals"
+import { canInstallPWA, installPWA } from "./pwa"
 
 type Page = "meals" | "basket" | "list" | "settings"
 type Theme = "light" | "dark"
@@ -25,7 +26,6 @@ function loadBasket(): string[] {
   const arr = safeJsonParse<any>(localStorage.getItem(LS_BASKET), [])
   return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : []
 }
-
 function saveBasket(ids: string[]) {
   localStorage.setItem(LS_BASKET, JSON.stringify(ids))
 }
@@ -34,7 +34,6 @@ function loadTheme(): Theme {
   const t = localStorage.getItem(LS_THEME)
   return t === "dark" ? "dark" : "light"
 }
-
 function saveTheme(t: Theme) {
   localStorage.setItem(LS_THEME, t)
 }
@@ -43,7 +42,6 @@ function loadChecks(): ChecksMap {
   const obj = safeJsonParse<any>(localStorage.getItem(LS_CHECKS), {})
   return obj && typeof obj === "object" ? obj : {}
 }
-
 function saveChecks(m: ChecksMap) {
   localStorage.setItem(LS_CHECKS, JSON.stringify(m))
 }
@@ -52,7 +50,6 @@ function loadEdits(): EditsMap {
   const obj = safeJsonParse<any>(localStorage.getItem(LS_EDITS), {})
   return obj && typeof obj === "object" ? obj : {}
 }
-
 function saveEdits(m: EditsMap) {
   localStorage.setItem(LS_EDITS, JSON.stringify(m))
 }
@@ -74,6 +71,9 @@ export default function App() {
 
   const [checks, setChecks] = useState<ChecksMap>(() => loadChecks())
   const [edits, setEdits] = useState<EditsMap>(() => loadEdits())
+
+  // NEW: meal search
+  const [mealQuery, setMealQuery] = useState("")
 
   useEffect(() => saveTheme(theme), [theme])
   useEffect(() => saveBasket(basket), [basket])
@@ -154,8 +154,6 @@ export default function App() {
 
   function clearBasketOnly() {
     setBasket([])
-    // keep checks/edits by default (some people like returning later),
-    // but you can switch this to clearAll() if you prefer.
   }
 
   const Shell = ({ children }: { children: React.ReactNode }) => {
@@ -306,8 +304,67 @@ export default function App() {
     )
   }
 
+  // NEW: meals filtered by search
+  const filteredMeals = useMemo(() => {
+    const q = mealQuery.trim().toLowerCase()
+    if (!q) return meals
+    return meals.filter((m) => m.name.toLowerCase().includes(q))
+  }, [meals, mealQuery])
+
   const MealsPage = () => (
     <>
+      {/* NEW: Search box */}
+      <div
+        style={{
+          background: ui.card,
+          borderRadius: 16,
+          padding: 12,
+          boxShadow: ui.shadow,
+          border: `1px solid ${ui.border}`,
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Find a meal</div>
+
+        <input
+          value={mealQuery}
+          onChange={(e) => setMealQuery(e.target.value)}
+          placeholder="Search meals…"
+          style={{
+            width: "100%",
+            padding: "12px 12px",
+            borderRadius: 12,
+            border: `1px solid ${ui.border}`,
+            background: ui.card2,
+            color: ui.text,
+            fontWeight: 800,
+            outline: "none",
+          }}
+        />
+
+        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+          <div style={{ color: ui.muted, fontSize: 13, fontWeight: 800, flex: 1 }}>
+            Showing {filteredMeals.length} of {meals.length}
+          </div>
+          {mealQuery.trim().length > 0 && (
+            <button
+              onClick={() => setMealQuery("")}
+              style={{
+                borderRadius: 12,
+                padding: "10px 12px",
+                background: ui.card,
+                border: `1px solid ${ui.border}`,
+                color: ui.brand,
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
       {loading && <p style={{ color: ui.muted }}>Loading meals…</p>}
 
       {error && (
@@ -318,7 +375,7 @@ export default function App() {
 
       {!loading && !error && (
         <div style={{ display: "grid", gap: 12 }}>
-          {meals.map((meal) => {
+          {filteredMeals.map((meal) => {
             const inBasket = basket.includes(meal.id)
             return (
               <div
@@ -364,6 +421,13 @@ export default function App() {
               </div>
             )
           })}
+
+          {!loading && filteredMeals.length === 0 && (
+            <div style={{ background: ui.card, borderRadius: 16, padding: 14, border: `1px solid ${ui.border}` }}>
+              <div style={{ fontWeight: 900, color: ui.brand }}>No meals found</div>
+              <p style={{ margin: "6px 0 0", color: ui.muted }}>Try a different search term.</p>
+            </div>
+          )}
         </div>
       )}
     </>
@@ -491,7 +555,14 @@ export default function App() {
     }
 
     function setEditedQty(key: string, value: number) {
-      setEdits((prev) => ({ ...prev, [key]: value }))
+      const safe = Number.isFinite(value) ? value : 0
+      setEdits((prev) => ({ ...prev, [key]: safe < 0 ? 0 : safe }))
+    }
+
+    // NEW: +/- helpers
+    function bumpQty(key: string, current: number, delta: number) {
+      const next = Math.max(0, (Number.isFinite(current) ? current : 0) + delta)
+      setEditedQty(key, next)
     }
 
     function copyList() {
@@ -554,21 +625,59 @@ export default function App() {
 
                   <div style={{ flex: 1, fontWeight: 900, color: ui.text }}>{i.name}</div>
 
+                  {/* NEW: minus */}
+                  <button
+                    onClick={() => bumpQty(key, qty, -1)}
+                    aria-label="Decrease quantity"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 12,
+                      background: ui.card2,
+                      border: `1px solid ${ui.border}`,
+                      color: ui.text,
+                      fontWeight: 900,
+                      cursor: "pointer",
+                    }}
+                  >
+                    –
+                  </button>
+
+                  {/* Editable number input stays */}
                   <input
                     value={qty}
                     onChange={(e) => setEditedQty(key, Number(e.target.value))}
                     type="number"
                     min={0}
                     style={{
-                      width: 78,
+                      width: 72,
                       padding: "6px 8px",
                       borderRadius: 10,
                       border: `1px solid ${ui.border}`,
                       fontWeight: 900,
                       color: ui.text,
                       background: ui.card2,
+                      textAlign: "center",
                     }}
                   />
+
+                  {/* NEW: plus */}
+                  <button
+                    onClick={() => bumpQty(key, qty, +1)}
+                    aria-label="Increase quantity"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 12,
+                      background: ui.card2,
+                      border: `1px solid ${ui.border}`,
+                      color: ui.text,
+                      fontWeight: 900,
+                      cursor: "pointer",
+                    }}
+                  >
+                    +
+                  </button>
 
                   <div style={{ width: 44, color: ui.muted, fontWeight: 900, textAlign: "right" }}>{i.unit}</div>
                 </div>
@@ -629,13 +738,33 @@ export default function App() {
             {theme === "dark" ? "On" : "Off"}
           </button>
         </div>
+
+        {/* OPTIONAL: Install button appears only when available */}
+        <button
+          onClick={async () => {
+            const ok = await installPWA()
+            if (!ok) alert("Install isn’t available yet. Try Chrome, refresh once, then open Settings again.")
+          }}
+          style={{
+            width: "100%",
+            borderRadius: 14,
+            padding: "12px 14px",
+            background: ui.brand,
+            color: theme === "dark" ? "#1B1F1F" : "white",
+            fontWeight: 900,
+            border: "none",
+            cursor: "pointer",
+            marginTop: 12,
+            display: canInstallPWA() ? "block" : "none",
+          }}
+        >
+          Install Nomlet
+        </button>
       </div>
 
       <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
         <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Request meals</div>
-        <p style={{ margin: 0, color: ui.muted }}>
-          The ability to request meals to be added to the site will come soon.
-        </p>
+        <p style={{ margin: 0, color: ui.muted }}>The ability to request meals to be added to the site will come soon.</p>
       </div>
 
       <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
