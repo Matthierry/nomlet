@@ -758,9 +758,10 @@ export default function App() {
                   {/* Uncontrolled input: does NOT re-render on each keystroke */}
                   <input
                     defaultValue={startQty}
-                    ref={(el) => (qtyInputRefs.current[key] = el)}
+                    ref={(el) => {
+                      qtyInputRefs.current[key] = el
+                    }}
                     onFocus={() => {
-                      // keep a live value in sync when you start typing
                       liveEditsRef.current[key] = getCurrentQty(key, i.quantity)
                     }}
                     onChange={(e) => {
