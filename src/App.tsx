@@ -70,19 +70,44 @@ export default function App() {
   const [checks, setChecks] = useState<ChecksMap>(() => loadChecks())
   const [edits, setEdits] = useState<EditsMap>(() => loadEdits())
 
-  // ---- SEARCH (keyboard-safe)
-  // UI value (what you type) - updates instantly
-  const [mealQueryUI, setMealQueryUI] = useState("")
-  // Debounced value used for filtering/suggestions (reduces DOM churn)
-  const [mealQuery, setMealQuery] = useState("")
-  const [searchOpen, setSearchOpen] = useState(false)
+  // ========= SEARCH (FIXED): uncontrolled input + debounced filter state =========
   const searchWrapRef = useRef<HTMLDivElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement | null>(null)
 
+  // queryRef stores what user is typing (no re-renders)
+  const queryRef = useRef<string>("")
+  // query is what React uses for filtering (debounced)
+  const [query, setQuery] = useState<string>("")
+  // used only to show/hide clear button + helper text, updated debounced (not per-keystroke)
+  const [queryUI, setQueryUI] = useState<string>("")
+
+  const debounceTimer = useRef<number | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+
+  function scheduleQueryUpdate(next: string) {
+    // Update refs instantly (no re-render)
+    queryRef.current = next
+
+    // Debounce state updates to avoid focus loss
+    if (debounceTimer.current) window.clearTimeout(debounceTimer.current)
+    debounceTimer.current = window.setTimeout(() => {
+      setQuery(next)
+      setQueryUI(next)
+    }, 180)
+  }
+
+  function clearSearch() {
+    queryRef.current = ""
+    if (searchInputRef.current) searchInputRef.current.value = ""
+    if (debounceTimer.current) window.clearTimeout(debounceTimer.current)
+    setQuery("")
+    setQueryUI("")
+    setSearchOpen(true)
+    requestAnimationFrame(() => searchInputRef.current?.focus())
+  }
+
   // ---- LIST EDITS (keyboard-safe)
-  // live values updated while typing WITHOUT causing React re-render
   const liveEditsRef = useRef<Record<string, number>>({})
-  // refs so +/- can update the visible input value instantly
   const qtyInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   // Persist
@@ -107,13 +132,7 @@ export default function App() {
     })()
   }, [])
 
-  // Debounce search so typing doesn’t constantly re-filter/repaint the page
-  useEffect(() => {
-    const t = window.setTimeout(() => setMealQuery(mealQueryUI), 160)
-    return () => window.clearTimeout(t)
-  }, [mealQueryUI])
-
-  // Close search on outside tap
+  // Close search dropdown on outside click/tap
   useEffect(() => {
     function onDown(e: MouseEvent | TouchEvent) {
       const el = searchWrapRef.current
@@ -195,8 +214,7 @@ export default function App() {
     setChecks({})
     setEdits({})
     liveEditsRef.current = {}
-    setMealQueryUI("")
-    setMealQuery("")
+    clearSearch()
     setSearchOpen(false)
     setPage("meals")
   }
@@ -301,7 +319,7 @@ export default function App() {
   )
 
   // 3+ letters rule
-  const queryTrim = mealQuery.trim()
+  const queryTrim = query.trim()
   const queryLower = queryTrim.toLowerCase()
   const searchActive = queryTrim.length >= 3
 
@@ -347,8 +365,11 @@ export default function App() {
 
             <input
               ref={searchInputRef}
-              value={mealQueryUI}
-              onChange={(e) => setMealQueryUI(e.target.value)}
+              defaultValue=""
+              onInput={(e) => {
+                const v = (e.target as HTMLInputElement).value
+                scheduleQueryUpdate(v)
+              }}
               onFocus={() => setSearchOpen(true)}
               placeholder="Search meals… (type 3+ letters)"
               inputMode="search"
@@ -367,13 +388,9 @@ export default function App() {
               }}
             />
 
-            {mealQueryUI.length > 0 && (
+            {queryUI.length > 0 && (
               <button
-                onClick={() => {
-                  setMealQueryUI("")
-                  setSearchOpen(true)
-                  requestAnimationFrame(() => searchInputRef.current?.focus())
-                }}
+                onClick={clearSearch}
                 style={{
                   border: "none",
                   background: "transparent",
@@ -399,7 +416,7 @@ export default function App() {
             </div>
           </div>
 
-          {searchOpen && mealQueryUI.trim().length > 0 && (
+          {searchOpen && queryUI.trim().length > 0 && (
             <div
               style={{
                 marginTop: 10,
@@ -411,7 +428,7 @@ export default function App() {
             >
               {!searchActive ? (
                 <div style={{ padding: 12, color: ui.muted, fontWeight: 800 }}>
-                  Keep typing… ({mealQueryUI.trim().length}/3)
+                  Keep typing… ({queryUI.trim().length}/3)
                 </div>
               ) : suggestions.length === 0 ? (
                 <div style={{ padding: 12, color: ui.muted, fontWeight: 800 }}>
@@ -755,7 +772,6 @@ export default function App() {
                     –
                   </button>
 
-                  {/* Uncontrolled input: does NOT re-render on each keystroke */}
                   <input
                     defaultValue={startQty}
                     ref={(el) => {
