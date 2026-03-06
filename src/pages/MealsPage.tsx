@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Meal } from "../data/loadMeals";
-import type { UITheme } from "../styles/theme";
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { Meal } from "../data/loadMeals"
+import type { UITheme } from "../styles/theme"
 
-const MEALS_SCROLL_KEY = "nomlet:scrollY:meals";
+const MEALS_SCROLL_KEY = "nomlet:scrollY:meals"
+
+function formatCalories(calories: number | null) {
+  return calories != null ? `${calories} cal` : "Calories n/a"
+}
+
+function formatTime(totalTime: number | null) {
+  return totalTime != null ? `${totalTime} mins` : "Time n/a"
+}
 
 export function MealsPage({
   meals,
@@ -12,88 +20,85 @@ export function MealsPage({
   loading,
   error,
 }: {
-  meals: Meal[];
-  basket: string[];
-  toggleMeal: (mealId: string) => void;
-  ui: UITheme;
-  loading: boolean;
-  error: string | null;
+  meals: Meal[]
+  basket: string[]
+  toggleMeal: (mealId: string) => void
+  ui: UITheme
+  loading: boolean
+  error: string | null
 }) {
-  // ---------- Search (simple, stable) ----------
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const [query, setQuery] = useState("");
-  const [queryUI, setQueryUI] = useState("");
-  const debounceTimer = useRef<number | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const [query, setQuery] = useState("")
+  const [queryUI, setQueryUI] = useState("")
+  const debounceTimer = useRef<number | null>(null)
 
   function scheduleQueryUpdate(next: string) {
-    if (debounceTimer.current) window.clearTimeout(debounceTimer.current);
+    if (debounceTimer.current) window.clearTimeout(debounceTimer.current)
     debounceTimer.current = window.setTimeout(() => {
-      setQuery(next);
-      setQueryUI(next);
-    }, 120);
+      setQuery(next)
+      setQueryUI(next)
+    }, 120)
   }
 
   function clearSearch() {
-    if (searchInputRef.current) searchInputRef.current.value = "";
-    if (debounceTimer.current) window.clearTimeout(debounceTimer.current);
-    setQuery("");
-    setQueryUI("");
-    requestAnimationFrame(() => searchInputRef.current?.focus());
+    if (searchInputRef.current) searchInputRef.current.value = ""
+    if (debounceTimer.current) window.clearTimeout(debounceTimer.current)
+    setQuery("")
+    setQueryUI("")
+    requestAnimationFrame(() => searchInputRef.current?.focus())
   }
 
-  // Search rule remains: filter only when 3+ letters (but we don't tell the user)
-  const queryTrim = query.trim();
-  const searchActive = queryTrim.length >= 3;
-  const queryLower = queryTrim.toLowerCase();
+  const queryTrim = query.trim()
+  const searchActive = queryTrim.length >= 3
+  const queryLower = queryTrim.toLowerCase()
 
   const mealListToShow = useMemo(() => {
-    if (!searchActive) return meals;
-    return meals.filter((m) => m.name.toLowerCase().includes(queryLower));
-  }, [meals, searchActive, queryLower]);
+    if (!searchActive) return meals
+    return meals.filter((m) => {
+      return (
+        m.name.toLowerCase().includes(queryLower) ||
+        m.foodCat.toLowerCase().includes(queryLower)
+      )
+    })
+  }, [meals, searchActive, queryLower])
 
-  // ---------- Scroll position memory ----------
-  const restoreDoneRef = useRef(false);
-  const rafIdRef = useRef<number | null>(null);
+  const restoreDoneRef = useRef(false)
+  const rafIdRef = useRef<number | null>(null)
 
-  // Restore once on mount
   useEffect(() => {
-    if (restoreDoneRef.current) return;
+    if (restoreDoneRef.current) return
 
-    const raw = sessionStorage.getItem(MEALS_SCROLL_KEY);
-    const y = raw ? Number(raw) : 0;
+    const raw = sessionStorage.getItem(MEALS_SCROLL_KEY)
+    const y = raw ? Number(raw) : 0
 
-    // Defer until after initial paint so layout exists
     requestAnimationFrame(() => {
       if (Number.isFinite(y) && y > 0) {
-        window.scrollTo({ top: y, left: 0, behavior: "auto" });
+        window.scrollTo({ top: y, left: 0, behavior: "auto" })
       }
-      restoreDoneRef.current = true;
-    });
-  }, []);
+      restoreDoneRef.current = true
+    })
+  }, [])
 
-  // Save on scroll (throttled with rAF)
   useEffect(() => {
     const onScroll = () => {
-      if (rafIdRef.current != null) return;
+      if (rafIdRef.current != null) return
       rafIdRef.current = window.requestAnimationFrame(() => {
-        sessionStorage.setItem(MEALS_SCROLL_KEY, String(window.scrollY || 0));
-        rafIdRef.current = null;
-      });
-    };
+        sessionStorage.setItem(MEALS_SCROLL_KEY, String(window.scrollY || 0))
+        rafIdRef.current = null
+      })
+    }
 
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true })
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (rafIdRef.current != null) window.cancelAnimationFrame(rafIdRef.current);
-      // Save one last time on unmount
-      sessionStorage.setItem(MEALS_SCROLL_KEY, String(window.scrollY || 0));
-    };
-  }, []);
+      window.removeEventListener("scroll", onScroll)
+      if (rafIdRef.current != null) window.cancelAnimationFrame(rafIdRef.current)
+      sessionStorage.setItem(MEALS_SCROLL_KEY, String(window.scrollY || 0))
+    }
+  }, [])
 
   return (
     <>
-      {/* Sticky Search */}
       <div
         style={{
           position: "sticky",
@@ -128,7 +133,6 @@ export function MealsPage({
               boxSizing: "border-box",
             }}
           >
-            {/* Minimal search icon */}
             <span
               aria-hidden="true"
               style={{
@@ -185,7 +189,6 @@ export function MealsPage({
               }}
             />
 
-            {/* Always render this container so DOM doesn't jump */}
             <div style={{ width: 26, display: "flex", justifyContent: "flex-end" }}>
               {queryUI.length > 0 && (
                 <button
@@ -208,9 +211,10 @@ export function MealsPage({
             </div>
           </div>
 
-          {/* Info line (no "type 3 letters" instruction) */}
           <div style={{ marginTop: 10, color: ui.muted, fontSize: 13, fontWeight: 800 }}>
-            {searchActive ? `Showing ${mealListToShow.length} of ${meals.length}` : `Showing ${meals.length} meals`}
+            {searchActive
+              ? `Showing ${mealListToShow.length} of ${meals.length}`
+              : `Showing ${meals.length} meals`}
           </div>
         </div>
       </div>
@@ -218,7 +222,14 @@ export function MealsPage({
       {loading && <p style={{ color: ui.muted }}>Loading meals…</p>}
 
       {error && (
-        <div style={{ background: ui.card, padding: 12, borderRadius: 12, border: `1px solid ${ui.border}` }}>
+        <div
+          style={{
+            background: ui.card,
+            padding: 12,
+            borderRadius: 12,
+            border: `1px solid ${ui.border}`,
+          }}
+        >
           <p style={{ margin: 0, color: ui.pink, fontWeight: 900 }}>Error: {error}</p>
         </div>
       )}
@@ -226,7 +237,8 @@ export function MealsPage({
       {!loading && !error && (
         <div style={{ display: "grid", gap: 12 }}>
           {mealListToShow.map((meal) => {
-            const inBasket = basket.includes(meal.id);
+            const inBasket = basket.includes(meal.id)
+
             return (
               <div
                 key={meal.id}
@@ -238,15 +250,36 @@ export function MealsPage({
                   border: `1px solid ${ui.border}`,
                 }}
               >
-                <img src={meal.imageUrl} alt="" style={{ width: "100%", height: 160, objectFit: "cover" }} />
+                <img
+                  src={meal.imageUrl}
+                  alt=""
+                  style={{ width: "100%", height: 160, objectFit: "cover" }}
+                />
+
                 <div style={{ padding: 14 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 900, color: ui.brand }}>{meal.name}</div>
-                      <div style={{ marginTop: 4, color: ui.muted, fontSize: 13 }}>Calories: ??? • Serves 2</div>
+
+                      <div style={{ marginTop: 4, color: ui.muted, fontSize: 13 }}>
+                        {formatCalories(meal.calories)} • {formatTime(meal.totalTime)}
+                      </div>
+
+                      {meal.foodCat && (
+                        <div style={{ marginTop: 6, color: ui.muted, fontSize: 12, fontWeight: 800 }}>
+                          {meal.foodCat}
+                        </div>
+                      )}
                     </div>
 
-                    <div style={{ color: ui.accent, fontWeight: 900, alignSelf: "center", whiteSpace: "nowrap" }}>
+                    <div
+                      style={{
+                        color: ui.accent,
+                        fontWeight: 900,
+                        alignSelf: "center",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {meal.ingredients.length} items
                     </div>
                   </div>
@@ -269,10 +302,10 @@ export function MealsPage({
                   </button>
                 </div>
               </div>
-            );
+            )
           })}
         </div>
       )}
     </>
-  );
+  )
 }

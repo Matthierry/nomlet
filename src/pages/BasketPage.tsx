@@ -2,6 +2,14 @@ import type { Meal } from "../data/loadMeals"
 import type { UITheme } from "../styles/theme"
 import type { Page } from "../components/BottomNav"
 
+function formatCalories(calories: number | null) {
+  return calories != null ? `${calories} cal` : "Calories n/a"
+}
+
+function formatTime(totalTime: number | null) {
+  return totalTime != null ? `${totalTime} mins` : "Time n/a"
+}
+
 export function BasketPage({
   basketMeals,
   ui,
@@ -55,7 +63,15 @@ export function BasketPage({
         </button>
       </div>
 
-      <div style={{ background: ui.card, borderRadius: 16, padding: 14, boxShadow: ui.shadow, border: `1px solid ${ui.border}` }}>
+      <div
+        style={{
+          background: ui.card,
+          borderRadius: 16,
+          padding: 14,
+          boxShadow: ui.shadow,
+          border: `1px solid ${ui.border}`,
+        }}
+      >
         <div style={{ fontWeight: 900, color: ui.brand, marginBottom: 8 }}>Review basket</div>
 
         {basketMeals.length === 0 ? (
@@ -75,10 +91,17 @@ export function BasketPage({
                   border: `1px solid ${ui.border}`,
                 }}
               >
-                <img src={m.imageUrl} alt="" style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover" }} />
+                <img
+                  src={m.imageUrl}
+                  alt=""
+                  style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover" }}
+                />
+
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 900, color: ui.brand }}>{m.name}</div>
-                  <div style={{ color: ui.muted, fontSize: 13 }}>Serves 2 • Calories ???</div>
+                  <div style={{ color: ui.muted, fontSize: 13 }}>
+                    {formatCalories(m.calories)} • {formatTime(m.totalTime)}
+                  </div>
                 </div>
 
                 <button
