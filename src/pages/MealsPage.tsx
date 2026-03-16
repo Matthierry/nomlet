@@ -50,6 +50,7 @@ export function MealsPage({
   const [activeCategory, setActiveCategory] = useState("All")
   const [prepFilter, setPrepFilter] = useState<PrepFilter>("all")
   const [favouritesOnly, setFavouritesOnly] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const debounceTimer = useRef<number | null>(null)
@@ -153,6 +154,14 @@ export function MealsPage({
     { id: "under30", label: "Under 30 mins" },
   ]
 
+  const hasActiveFilters = activeCategory !== "All" || prepFilter !== "all" || favouritesOnly
+
+  function clearFilters() {
+    setActiveCategory("All")
+    setPrepFilter("all")
+    setFavouritesOnly(false)
+  }
+
   return (
     <>
       <div style={{ position: "sticky", top: 0, zIndex: 20, background: ui.bg, paddingBottom: 10 }}>
@@ -199,68 +208,85 @@ export function MealsPage({
                 ×
               </button>
             )}
-          </div>
-
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-            {categoryOptions.map((cat) => {
-              const active = cat === activeCategory
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  style={{
-                    borderRadius: 999,
-                    padding: "8px 12px",
-                    border: `1px solid ${active ? ui.accent : ui.border}`,
-                    background: active ? ui.accentSoft : ui.card2,
-                    color: ui.text,
-                    fontWeight: 800,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {cat}
-                </button>
-              )
-            })}
-          </div>
-
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", marginTop: 8, paddingBottom: 4 }}>
-            {prepOptions.map((opt) => {
-              const active = prepFilter === opt.id
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => setPrepFilter(opt.id)}
-                  style={{
-                    borderRadius: 999,
-                    padding: "8px 12px",
-                    border: `1px solid ${active ? ui.accent : ui.border}`,
-                    background: active ? ui.accentSoft : ui.card2,
-                    color: ui.text,
-                    fontWeight: 800,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {opt.label}
-                </button>
-              )
-            })}
 
             <button
-              onClick={() => setFavouritesOnly((prev) => !prev)}
+              onClick={() => setFiltersOpen(true)}
               style={{
-                borderRadius: 999,
-                padding: "8px 12px",
-                border: `1px solid ${favouritesOnly ? ui.accent : ui.border}`,
-                background: favouritesOnly ? ui.accentSoft : ui.card2,
+                border: `1px solid ${hasActiveFilters ? ui.accent : ui.border}`,
+                borderRadius: 12,
+                background: hasActiveFilters ? ui.accentSoft : ui.card2,
                 color: ui.text,
-                fontWeight: 800,
+                fontWeight: 900,
+                minWidth: 44,
+                height: 44,
+                padding: "0 12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
                 whiteSpace: "nowrap",
               }}
+              aria-label="Open filters"
             >
-              {favouritesOnly ? "★ Favourites" : "☆ Favourites"}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 7h16M7 12h10M10 17h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <span style={{ fontSize: 14 }}>Filters</span>
             </button>
           </div>
+
+          {hasActiveFilters && (
+            <div className="hide-horizontal-scrollbar" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+              {activeCategory !== "All" && (
+                <button
+                  onClick={() => setActiveCategory("All")}
+                  style={{
+                    borderRadius: 999,
+                    padding: "7px 12px",
+                    border: `1px solid ${ui.accent}`,
+                    background: ui.accentSoft,
+                    color: ui.text,
+                    fontWeight: 800,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {activeCategory} ✕
+                </button>
+              )}
+              {prepFilter !== "all" && (
+                <button
+                  onClick={() => setPrepFilter("all")}
+                  style={{
+                    borderRadius: 999,
+                    padding: "7px 12px",
+                    border: `1px solid ${ui.accent}`,
+                    background: ui.accentSoft,
+                    color: ui.text,
+                    fontWeight: 800,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {prepOptions.find((opt) => opt.id === prepFilter)?.label} ✕
+                </button>
+              )}
+              {favouritesOnly && (
+                <button
+                  onClick={() => setFavouritesOnly(false)}
+                  style={{
+                    borderRadius: 999,
+                    padding: "7px 12px",
+                    border: `1px solid ${ui.accent}`,
+                    background: ui.accentSoft,
+                    color: ui.text,
+                    fontWeight: 800,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ★ Favourites ✕
+                </button>
+              )}
+            </div>
+          )}
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
             <div style={{ color: ui.muted, fontSize: 13, fontWeight: 800 }}>
@@ -499,6 +525,139 @@ export function MealsPage({
             >
               {basket.includes(selectedMeal.id) ? "Remove from basket" : "Add to basket"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {filtersOpen && (
+        <div
+          onClick={() => setFiltersOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            zIndex: 35,
+            display: "flex",
+            alignItems: "flex-end",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: ui.card,
+              width: "100%",
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              borderTop: `1px solid ${ui.border}`,
+              padding: 16,
+              boxShadow: ui.shadow,
+              maxHeight: "76dvh",
+              overflowY: "auto",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ fontSize: 19, fontWeight: 900, color: ui.text }}>Filters</div>
+              <button
+                onClick={() => setFiltersOpen(false)}
+                aria-label="Close filters"
+                style={{ borderRadius: 12, border: `1px solid ${ui.border}`, width: 42, height: 42, background: ui.card2, fontWeight: 900 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ color: ui.muted, fontWeight: 800, fontSize: 13, marginBottom: 8 }}>Meal category</div>
+            <div className="hide-horizontal-scrollbar" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+              {categoryOptions.map((cat) => {
+                const active = cat === activeCategory
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    style={{
+                      borderRadius: 999,
+                      padding: "10px 14px",
+                      border: `1px solid ${active ? ui.accent : ui.border}`,
+                      background: active ? ui.accentSoft : ui.card2,
+                      color: ui.text,
+                      fontWeight: 800,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {cat}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div style={{ color: ui.muted, fontWeight: 800, fontSize: 13, margin: "14px 0 8px" }}>Prep time</div>
+            <div className="hide-horizontal-scrollbar" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+              {prepOptions.map((opt) => {
+                const active = prepFilter === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => setPrepFilter(opt.id)}
+                    style={{
+                      borderRadius: 999,
+                      padding: "10px 14px",
+                      border: `1px solid ${active ? ui.accent : ui.border}`,
+                      background: active ? ui.accentSoft : ui.card2,
+                      color: ui.text,
+                      fontWeight: 800,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <button
+              onClick={() => setFavouritesOnly((prev) => !prev)}
+              style={{
+                marginTop: 14,
+                borderRadius: 999,
+                padding: "10px 14px",
+                border: `1px solid ${favouritesOnly ? ui.accent : ui.border}`,
+                background: favouritesOnly ? ui.accentSoft : ui.card2,
+                color: ui.text,
+                fontWeight: 800,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {favouritesOnly ? "★ Favourites only" : "☆ Favourites only"}
+            </button>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 16 }}>
+              <button
+                onClick={clearFilters}
+                style={{
+                  borderRadius: 12,
+                  border: `1px solid ${ui.border}`,
+                  background: ui.card2,
+                  color: ui.text,
+                  padding: "12px 14px",
+                  fontWeight: 800,
+                }}
+              >
+                Clear
+              </button>
+              <button
+                onClick={() => setFiltersOpen(false)}
+                style={{
+                  borderRadius: 12,
+                  border: "none",
+                  background: ui.brand,
+                  color: "#fff",
+                  padding: "12px 14px",
+                  fontWeight: 900,
+                }}
+              >
+                Apply
+              </button>
+            </div>
           </div>
         </div>
       )}
