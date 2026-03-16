@@ -1,4 +1,4 @@
-import type { Meal } from "../data/loadMeals"
+import { PLACEHOLDER_MEAL_IMAGE_URL, type Meal } from "../data/loadMeals"
 import type { UITheme } from "../styles/theme"
 import type { Page } from "../components/BottomNav"
 
@@ -94,6 +94,10 @@ export function BasketPage({
                 <img
                   src={m.imageUrl}
                   alt=""
+                  onError={(e) => {
+                    e.currentTarget.onerror = null
+                    e.currentTarget.src = PLACEHOLDER_MEAL_IMAGE_URL
+                  }}
                   style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover" }}
                 />
 
