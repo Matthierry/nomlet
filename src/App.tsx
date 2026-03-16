@@ -14,10 +14,12 @@ import {
   loadBasket,
   loadChecks,
   loadEdits,
+  loadFavourites,
   loadTheme,
   saveBasket,
   saveChecks,
   saveEdits,
+  saveFavourites,
   saveTheme,
   type ChecksMap,
   type EditsMap,
@@ -34,14 +36,14 @@ export default function App() {
   const [basket, setBasket] = useState<string[]>(() => loadBasket())
   const [checks, setChecks] = useState<ChecksMap>(() => loadChecks())
   const [edits, setEdits] = useState<EditsMap>(() => loadEdits())
+  const [favourites, setFavourites] = useState<string[]>(() => loadFavourites())
 
-  // Persist
   useEffect(() => saveTheme(theme), [theme])
   useEffect(() => saveBasket(basket), [basket])
   useEffect(() => saveChecks(checks), [checks])
   useEffect(() => saveEdits(edits), [edits])
+  useEffect(() => saveFavourites(favourites), [favourites])
 
-  // Load meals
   useEffect(() => {
     ;(async () => {
       try {
@@ -49,8 +51,9 @@ export default function App() {
         setError(null)
         const data = await loadMeals()
         setMeals(data)
-      } catch (e: any) {
-        setError(e?.message ?? "Failed to load meals")
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Failed to load meals"
+        setError(message)
       } finally {
         setLoading(false)
       }
@@ -59,7 +62,6 @@ export default function App() {
 
   const ui = useMemo(() => getUI(theme), [theme])
 
-  // Global background + remove side gap / horizontal scroll
   useEffect(() => {
     const setStyle = (el: HTMLElement, s: Partial<CSSStyleDeclaration>) => Object.assign(el.style, s)
     setStyle(document.documentElement, { background: ui.bg })
@@ -82,12 +84,20 @@ export default function App() {
     })
   }
 
+  function toggleFavourite(mealId: string) {
+    setFavourites((prev) => {
+      const set = new Set(prev)
+      if (set.has(mealId)) set.delete(mealId)
+      else set.add(mealId)
+      return Array.from(set)
+    })
+  }
+
   function clearAll() {
     setBasket([])
     setChecks({})
     setEdits({})
     setPage("meals")
-    // MealsPage owns its own search state now; clearing search is naturally handled by navigation/reset.
   }
 
   function clearBasketOnly() {
@@ -96,7 +106,17 @@ export default function App() {
 
   const content =
     page === "meals" ? (
-      <MealsPage meals={meals} basket={basket} toggleMeal={toggleMeal} ui={ui} loading={loading} error={error} />
+      <MealsPage
+        meals={meals}
+        basket={basket}
+        favourites={favourites}
+        toggleMeal={toggleMeal}
+        toggleFavourite={toggleFavourite}
+        setPage={setPage}
+        ui={ui}
+        loading={loading}
+        error={error}
+      />
     ) : page === "basket" ? (
       <BasketPage
         basketMeals={basketMeals}
@@ -108,7 +128,16 @@ export default function App() {
         setPage={setPage}
       />
     ) : page === "list" ? (
-      <ListPage basketMeals={basketMeals} ui={ui} theme={theme} checks={checks} setChecks={setChecks} edits={edits} setEdits={setEdits} clearAll={clearAll} />
+      <ListPage
+        basketMeals={basketMeals}
+        ui={ui}
+        theme={theme}
+        checks={checks}
+        setChecks={setChecks}
+        edits={edits}
+        setEdits={setEdits}
+        clearAll={clearAll}
+      />
     ) : (
       <SettingsPage ui={ui} theme={theme} setTheme={setTheme} clearAll={clearAll} />
     )
