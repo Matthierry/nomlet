@@ -23,6 +23,12 @@ export type Meal = {
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTukmzr84rPGnM_iQsK9UML94PwobVav1b3xniAuOLNYbroPtF1WPEOzonSjS874nzz4Zkexa7NOlKn/pub?gid=1096099850&single=true&output=csv"
 
+export const PLACEHOLDER_MEAL_IMAGE_URL = `${import.meta.env.BASE_URL}images/nomlet-placeholder.png`
+
+export function getMealImageUrl(mealId: string) {
+  return `${import.meta.env.BASE_URL}images/meals/${encodeURIComponent(mealId)}.jpg`
+}
+
 function parseCSVLine(line: string): string[] {
   const out: string[] = []
   let cur = ""
@@ -130,7 +136,7 @@ export async function loadMeals(): Promise<Meal[]> {
         name: mealName,
         description: description.trim(),
         recipeUrl,
-        imageUrl: `${import.meta.env.BASE_URL}images/nomlet-placeholder.png`,
+        imageUrl: getMealImageUrl(mealId),
         serves: 2,
         calories,
         prepTime,

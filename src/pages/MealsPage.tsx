@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import type { Meal } from "../data/loadMeals"
+import { PLACEHOLDER_MEAL_IMAGE_URL, type Meal } from "../data/loadMeals"
 import type { UITheme } from "../styles/theme"
 import type { Page } from "../components/BottomNav"
 
@@ -353,7 +353,16 @@ export function MealsPage({
                     cursor: "pointer",
                   }}
                 >
-                  <img src={meal.imageUrl} alt="" loading="lazy" style={{ width: "100%", height: 170, objectFit: "cover" }} />
+                  <img
+                    src={meal.imageUrl}
+                    alt=""
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null
+                      e.currentTarget.src = PLACEHOLDER_MEAL_IMAGE_URL
+                    }}
+                    style={{ width: "100%", height: 170, objectFit: "cover" }}
+                  />
 
                   <div style={{ padding: 14 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
