@@ -17,6 +17,7 @@ export type Meal = {
   cookTime: number | null
   totalTime: number | null
   foodCat: string
+  instructions: string
   ingredients: Ingredient[]
 }
 
@@ -84,6 +85,7 @@ export async function loadMeals(): Promise<Meal[]> {
   const iPrepTime = idx("prep_time")
   const iCookTime = idx("cook_time")
   const iFoodCat = idx("food_cat")
+  const iInstructions = idx("instructions")
   const iIngName = idx("ingredient_name")
   const iQty = idx("quantity")
   const iUnit = idx("unit")
@@ -116,6 +118,7 @@ export async function loadMeals(): Promise<Meal[]> {
     const prepTime = iPrepTime !== -1 ? toNumber(cols[iPrepTime]) : null
     const cookTime = iCookTime !== -1 ? toNumber(cols[iCookTime]) : null
     const foodCat = iFoodCat !== -1 ? (cols[iFoodCat] || "").trim() : ""
+    const instructions = iInstructions !== -1 ? (cols[iInstructions] || "").trim() : ""
     const quantity = iQty !== -1 ? toNumber(cols[iQty]) ?? 0 : 0
     const unit = iUnit !== -1 ? (cols[iUnit] || "").trim() : ""
     const ingredientCategory =
@@ -143,6 +146,7 @@ export async function loadMeals(): Promise<Meal[]> {
         cookTime,
         totalTime,
         foodCat,
+        instructions,
         ingredients: [],
       })
     }

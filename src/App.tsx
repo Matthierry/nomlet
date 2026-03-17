@@ -14,11 +14,13 @@ import {
   loadBasket,
   loadChecks,
   loadEdits,
+  loadExtras,
   loadFavourites,
   loadTheme,
   saveBasket,
   saveChecks,
   saveEdits,
+  saveExtras,
   saveFavourites,
   saveTheme,
   type ChecksMap,
@@ -37,12 +39,14 @@ export default function App() {
   const [checks, setChecks] = useState<ChecksMap>(() => loadChecks())
   const [edits, setEdits] = useState<EditsMap>(() => loadEdits())
   const [favourites, setFavourites] = useState<string[]>(() => loadFavourites())
+  const [extras, setExtras] = useState<string[]>(() => loadExtras())
 
   useEffect(() => saveTheme(theme), [theme])
   useEffect(() => saveBasket(basket), [basket])
   useEffect(() => saveChecks(checks), [checks])
   useEffect(() => saveEdits(edits), [edits])
   useEffect(() => saveFavourites(favourites), [favourites])
+  useEffect(() => saveExtras(extras), [extras])
 
   useEffect(() => {
     ;(async () => {
@@ -97,6 +101,7 @@ export default function App() {
     setBasket([])
     setChecks({})
     setEdits({})
+    setExtras([])
     setPage("meals")
   }
 
@@ -136,6 +141,8 @@ export default function App() {
         setChecks={setChecks}
         edits={edits}
         setEdits={setEdits}
+        extras={extras}
+        setExtras={setExtras}
         clearAll={clearAll}
       />
     ) : (

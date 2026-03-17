@@ -6,6 +6,7 @@ import type { Page } from "../components/BottomNav"
 const MEALS_SCROLL_KEY = "nomlet:scrollY:meals"
 
 type PrepFilter = "all" | "under10" | "under20" | "under30"
+type DetailTab = "ingredients" | "instructions"
 
 function formatCalories(calories: number | null) {
   return calories != null ? `${calories} cal` : "n/a"
@@ -53,6 +54,7 @@ export function MealsPage({
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [selectedMealId, setSelectedMealId] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [detailTab, setDetailTab] = useState<DetailTab>("ingredients")
   const debounceTimer = useRef<number | null>(null)
 
   function scheduleQueryUpdate(next: string) {
@@ -104,6 +106,7 @@ export function MealsPage({
   function pickRandomMeal() {
     if (filteredMeals.length === 0) return
     const randomIndex = Math.floor(Math.random() * filteredMeals.length)
+    setDetailTab("ingredients")
     setSelectedMealId(filteredMeals[randomIndex].id)
   }
 
@@ -128,6 +131,7 @@ export function MealsPage({
       restoreDoneRef.current = true
     })
   }, [])
+
 
   useEffect(() => {
     const onScroll = () => {
@@ -343,7 +347,10 @@ export function MealsPage({
                 }}
               >
                 <button
-                  onClick={() => setSelectedMealId(meal.id)}
+                  onClick={() => {
+                    setDetailTab("ingredients")
+                    setSelectedMealId(meal.id)
+                  }}
                   style={{
                     width: "100%",
                     textAlign: "left",
@@ -447,7 +454,10 @@ export function MealsPage({
 
       {selectedMeal && (
         <div
-          onClick={() => setSelectedMealId(null)}
+          onClick={() => {
+            setDetailTab("ingredients")
+            setSelectedMealId(null)
+          }}
           style={{
             position: "fixed",
             inset: 0,
@@ -473,7 +483,10 @@ export function MealsPage({
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ fontSize: 21, fontWeight: 900, color: ui.text }}>{selectedMeal.name}</div>
               <button
-                onClick={() => setSelectedMealId(null)}
+                onClick={() => {
+                  setDetailTab("ingredients")
+                  setSelectedMealId(null)
+                }}
                 style={{ borderRadius: 12, border: `1px solid ${ui.border}`, width: 42, height: 42, background: ui.card2, fontWeight: 900 }}
               >
                 ✕
@@ -489,14 +502,67 @@ export function MealsPage({
               <div style={{ background: ui.card2, borderRadius: 12, padding: 10 }}>Category: {selectedMeal.foodCat || "General"}</div>
             </div>
 
-            <div style={{ fontWeight: 900, marginBottom: 8 }}>Ingredients</div>
-            <ul style={{ marginTop: 0, paddingLeft: 18 }}>
-              {selectedMeal.ingredients.map((ing, index) => (
-                <li key={`${selectedMeal.id}-${ing.name}-${index}`} style={{ marginBottom: 6 }}>
-                  {ing.name} x {ing.quantity} {ing.unit}
-                </li>
-              ))}
-            </ul>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <button
+                onClick={() => setDetailTab("ingredients")}
+                style={{
+                  flex: 1,
+                  borderRadius: 12,
+                  border: `1px solid ${detailTab === "ingredients" ? ui.accent : ui.border}`,
+                  background: detailTab === "ingredients" ? ui.accentSoft : ui.card2,
+                  color: ui.text,
+                  fontWeight: 900,
+                  padding: "10px 12px",
+                }}
+              >
+                Ingredients
+              </button>
+              <button
+                onClick={() => setDetailTab("instructions")}
+                style={{
+                  flex: 1,
+                  borderRadius: 12,
+                  border: `1px solid ${detailTab === "instructions" ? ui.accent : ui.border}`,
+                  background: detailTab === "instructions" ? ui.accentSoft : ui.card2,
+                  color: ui.text,
+                  fontWeight: 900,
+                  padding: "10px 12px",
+                }}
+              >
+                Instructions
+              </button>
+            </div>
+
+            {detailTab === "ingredients" ? (
+              <>
+                <div style={{ fontWeight: 900, marginBottom: 8, color: ui.text }}>Ingredients</div>
+                <ul style={{ marginTop: 0, paddingLeft: 18 }}>
+                  {selectedMeal.ingredients.map((ing, index) => (
+                    <li key={`${selectedMeal.id}-${ing.name}-${index}`} style={{ marginBottom: 8, color: ui.text, lineHeight: 1.4 }}>
+                      {ing.name} x {ing.quantity} {ing.unit}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <>
+                <div style={{ fontWeight: 900, marginBottom: 8, color: ui.text }}>Instructions</div>
+                <div
+                  style={{
+                    margin: 0,
+                    color: ui.text,
+                    lineHeight: 1.6,
+                    whiteSpace: "pre-wrap",
+                    background: ui.card2,
+                    borderRadius: 12,
+                    padding: 12,
+                    border: `1px solid ${ui.border}`,
+                  }}
+                >
+                  {selectedMeal.instructions || "No cooking instructions available for this meal yet."}
+                </div>
+              </>
+            )}
 
             {selectedMeal.recipeUrl && (
               <a
