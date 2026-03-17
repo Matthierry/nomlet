@@ -5,6 +5,7 @@ export const LS_THEME = "nomlet:theme"
 export const LS_CHECKS = "nomlet:checks"
 export const LS_EDITS = "nomlet:edits"
 export const LS_FAVOURITES = "nomlet:favourites"
+export const LS_EXTRAS = "nomlet:extras"
 
 export type ChecksMap = Record<string, boolean>
 export type EditsMap = Record<string, number>
@@ -73,4 +74,13 @@ export function loadFavourites(): string[] {
 
 export function saveFavourites(ids: string[]) {
   localStorage.setItem(LS_FAVOURITES, JSON.stringify(ids))
+}
+
+export function loadExtras(): string[] {
+  const arr = safeJsonParse<unknown>(localStorage.getItem(LS_EXTRAS), [])
+  return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string") : []
+}
+
+export function saveExtras(items: string[]) {
+  localStorage.setItem(LS_EXTRAS, JSON.stringify(items))
 }
