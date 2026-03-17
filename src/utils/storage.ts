@@ -6,9 +6,11 @@ export const LS_CHECKS = "nomlet:checks"
 export const LS_EDITS = "nomlet:edits"
 export const LS_FAVOURITES = "nomlet:favourites"
 export const LS_EXTRAS = "nomlet:extras"
+export const LS_SERVINGS = "nomlet:servings"
 
 export type ChecksMap = Record<string, boolean>
 export type EditsMap = Record<string, number>
+export type ServingsMap = Record<string, number>
 
 export function safeJsonParse<T>(raw: string | null, fallback: T): T {
   try {
@@ -83,4 +85,21 @@ export function loadExtras(): string[] {
 
 export function saveExtras(items: string[]) {
   localStorage.setItem(LS_EXTRAS, JSON.stringify(items))
+}
+
+export function loadServings(): ServingsMap {
+  const value = safeJsonParse<unknown>(localStorage.getItem(LS_SERVINGS), {})
+  if (!isRecord(value)) return {}
+
+  const out: ServingsMap = {}
+  Object.entries(value).forEach(([key, item]) => {
+    if (typeof item === "number" && Number.isFinite(item) && item >= 1) {
+      out[key] = Math.round(item)
+    }
+  })
+  return out
+}
+
+export function saveServings(map: ServingsMap) {
+  localStorage.setItem(LS_SERVINGS, JSON.stringify(map))
 }

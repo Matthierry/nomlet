@@ -149,6 +149,11 @@ export async function loadMeals(): Promise<Meal[]> {
         instructions,
         ingredients: [],
       })
+    } else {
+      const existingMeal = mealsMap.get(mealId)!
+      if (!existingMeal.instructions && instructions) {
+        existingMeal.instructions = instructions
+      }
     }
 
     mealsMap.get(mealId)!.ingredients.push({
