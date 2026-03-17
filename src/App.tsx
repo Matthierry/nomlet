@@ -17,12 +17,14 @@ import {
   loadExtras,
   loadFavourites,
   loadTheme,
+  loadServings,
   saveBasket,
   saveChecks,
   saveEdits,
   saveExtras,
   saveFavourites,
   saveTheme,
+  saveServings,
   type ChecksMap,
   type EditsMap,
 } from "./utils/storage"
@@ -40,6 +42,7 @@ export default function App() {
   const [edits, setEdits] = useState<EditsMap>(() => loadEdits())
   const [favourites, setFavourites] = useState<string[]>(() => loadFavourites())
   const [extras, setExtras] = useState<string[]>(() => loadExtras())
+  const [servingsByMeal, setServingsByMeal] = useState<Record<string, number>>(() => loadServings())
 
   useEffect(() => saveTheme(theme), [theme])
   useEffect(() => saveBasket(basket), [basket])
@@ -47,6 +50,7 @@ export default function App() {
   useEffect(() => saveEdits(edits), [edits])
   useEffect(() => saveFavourites(favourites), [favourites])
   useEffect(() => saveExtras(extras), [extras])
+  useEffect(() => saveServings(servingsByMeal), [servingsByMeal])
 
   useEffect(() => {
     ;(async () => {
@@ -102,11 +106,17 @@ export default function App() {
     setChecks({})
     setEdits({})
     setExtras([])
+    setServingsByMeal({})
     setPage("meals")
   }
 
   function clearBasketOnly() {
     setBasket([])
+  }
+
+  function updateMealServings(mealId: string, servings: number) {
+    const safe = Math.min(12, Math.max(1, Math.round(servings)))
+    setServingsByMeal((prev) => ({ ...prev, [mealId]: safe }))
   }
 
   const content =
@@ -121,6 +131,8 @@ export default function App() {
         ui={ui}
         loading={loading}
         error={error}
+        servingsByMeal={servingsByMeal}
+        updateMealServings={updateMealServings}
       />
     ) : page === "basket" ? (
       <BasketPage
@@ -131,6 +143,8 @@ export default function App() {
         clearBasketOnly={clearBasketOnly}
         clearAll={clearAll}
         setPage={setPage}
+        servingsByMeal={servingsByMeal}
+        updateMealServings={updateMealServings}
       />
     ) : page === "list" ? (
       <ListPage
@@ -144,6 +158,7 @@ export default function App() {
         extras={extras}
         setExtras={setExtras}
         clearAll={clearAll}
+        servingsByMeal={servingsByMeal}
       />
     ) : (
       <SettingsPage ui={ui} theme={theme} setTheme={setTheme} clearAll={clearAll} />

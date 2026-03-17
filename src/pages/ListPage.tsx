@@ -7,6 +7,7 @@ import {
   orderIngredientCategories,
   OTHER_CATEGORY_LABEL,
 } from "../utils/ingredients"
+import { getMealServings, scaleQuantity } from "../utils/servings"
 import type { ChecksMap, EditsMap } from "../utils/storage"
 
 type IngredientRow = {
@@ -15,6 +16,7 @@ type IngredientRow = {
   quantity: number
   unit: string
   category: string
+  mealNames: string[]
 }
 
 function formatQuantity(value: number) {
@@ -36,6 +38,7 @@ export function ListPage({
   extras,
   setExtras,
   clearAll,
+  servingsByMeal,
 }: {
   basketMeals: Meal[]
   ui: UITheme
@@ -47,8 +50,10 @@ export function ListPage({
   extras: string[]
   setExtras: React.Dispatch<React.SetStateAction<string[]>>
   clearAll: () => void
+  servingsByMeal: Record<string, number>
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [expandedIngredients, setExpandedIngredients] = useState<Record<string, boolean>>({})
   const [copied, setCopied] = useState(false)
   const [extraInput, setExtraInput] = useState("")
 
@@ -56,6 +61,8 @@ export function ListPage({
     const ingredientMap: Record<string, IngredientRow> = {}
 
     basketMeals.forEach((meal) => {
+      const servings = getMealServings(meal, servingsByMeal)
+
       meal.ingredients.forEach((ing) => {
         const key = ingredientKey(ing.name, ing.unit)
         const category = normalizeIngredientCategory(ing.category)
@@ -67,10 +74,15 @@ export function ListPage({
             quantity: 0,
             unit: ing.unit,
             category,
+            mealNames: [],
           }
         }
 
-        ingredientMap[key].quantity += ing.quantity
+        ingredientMap[key].quantity += scaleQuantity(ing.quantity, ing.unit, servings)
+
+        if (!ingredientMap[key].mealNames.includes(meal.name)) {
+          ingredientMap[key].mealNames.push(meal.name)
+        }
 
         if (
           ingredientMap[key].category === OTHER_CATEGORY_LABEL &&
@@ -81,8 +93,13 @@ export function ListPage({
       })
     })
 
-    return Object.values(ingredientMap).sort((a, b) => a.name.localeCompare(b.name))
-  }, [basketMeals])
+    return Object.values(ingredientMap)
+      .map((item) => ({
+        ...item,
+        mealNames: item.mealNames.sort((a, b) => a.localeCompare(b)),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [basketMeals, servingsByMeal])
 
   const grouped = useMemo(() => {
     const map: Record<string, IngredientRow[]> = {}
@@ -116,6 +133,10 @@ export function ListPage({
 
   function toggleGroup(category: string) {
     setCollapsed((prev) => ({ ...prev, [category]: !prev[category] }))
+  }
+
+  function toggleIngredientDetails(key: string) {
+    setExpandedIngredients((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
   function addExtra() {
@@ -244,77 +265,97 @@ export function ListPage({
                     {group.items.map((item) => {
                       const checked = !!checks[item.key]
                       const qty = getQty(item.key, item.quantity)
+                      const expanded = !!expandedIngredients[item.key]
 
                       return (
                         <div
                           key={item.key}
                           style={{
-                            display: "grid",
-                            gridTemplateColumns: "34px 1fr auto auto",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: "11px 6px",
                             borderBottom: `1px solid ${ui.border}`,
                             background: checked ? ui.card2 : "transparent",
                             borderRadius: 10,
+                            padding: "8px 6px",
                           }}
                         >
-                          <button
-                            onClick={() => setChecked(item.key, !checked)}
-                            style={{
-                              width: 30,
-                              height: 30,
-                              borderRadius: 9,
-                              border: `1px solid ${ui.border}`,
-                              background: checked ? ui.brand : ui.card,
-                              color: checked ? "#fff" : ui.text,
-                              fontWeight: 900,
-                              fontSize: 16,
-                            }}
-                            aria-label={checked ? "Mark as not completed" : "Mark as completed"}
-                          >
-                            {checked ? "✓" : ""}
-                          </button>
-
                           <div
+                            onClick={() => toggleIngredientDetails(item.key)}
                             style={{
-                              fontWeight: 800,
-                              color: checked ? ui.muted : ui.text,
-                              fontSize: 18,
-                              textDecoration: checked ? "line-through" : "none",
+                              display: "grid",
+                              gridTemplateColumns: "34px 1fr auto auto",
+                              alignItems: "center",
+                              gap: 10,
                             }}
                           >
-                            {item.name}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setChecked(item.key, !checked)
+                              }}
+                              style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: 9,
+                                border: `1px solid ${ui.border}`,
+                                background: checked ? ui.brand : ui.card,
+                                color: checked ? "#fff" : ui.text,
+                                fontWeight: 900,
+                                fontSize: 16,
+                              }}
+                              aria-label={checked ? "Mark as not completed" : "Mark as completed"}
+                            >
+                              {checked ? "✓" : ""}
+                            </button>
+
+                            <div
+                              style={{
+                                fontWeight: 800,
+                                color: checked ? ui.muted : ui.text,
+                                fontSize: 18,
+                                textDecoration: checked ? "line-through" : "none",
+                              }}
+                            >
+                              {item.name}
+                            </div>
+
+                            <input
+                              type="number"
+                              min={0}
+                              value={qty}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => updateQty(item.key, Number(e.target.value))}
+                              style={{
+                                width: 72,
+                                borderRadius: 10,
+                                border: `1px solid ${ui.border}`,
+                                background: ui.card2,
+                                color: ui.text,
+                                fontWeight: 800,
+                                textAlign: "center",
+                                padding: "8px 6px",
+                              }}
+                            />
+
+                            <div
+                              style={{
+                                fontWeight: 800,
+                                color: ui.muted,
+                                minWidth: 38,
+                                textAlign: "right",
+                                fontSize: 15,
+                              }}
+                            >
+                              {item.unit}
+                            </div>
                           </div>
 
-                          <input
-                            type="number"
-                            min={0}
-                            value={qty}
-                            onChange={(e) => updateQty(item.key, Number(e.target.value))}
-                            style={{
-                              width: 72,
-                              borderRadius: 10,
-                              border: `1px solid ${ui.border}`,
-                              background: ui.card2,
-                              color: ui.text,
-                              fontWeight: 800,
-                              textAlign: "center",
-                              padding: "8px 6px",
-                            }}
-                          />
-
-                          <div
-                            style={{
-                              fontWeight: 800,
-                              color: ui.muted,
-                              minWidth: 38,
-                              textAlign: "right",
-                              fontSize: 15,
-                            }}
-                          >
-                            {item.unit}
-                          </div>
+                          {expanded && (
+                            <div style={{ marginTop: 8, marginLeft: 44, color: ui.muted, fontSize: 13, lineHeight: 1.45 }}>
+                              <div style={{ fontWeight: 800, marginBottom: 4 }}>Used in:</div>
+                              {item.mealNames.map((mealName) => (
+                                <div key={`${item.key}-${mealName}`}>- {mealName}</div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )
                     })}

@@ -1,6 +1,7 @@
 import { PLACEHOLDER_MEAL_IMAGE_URL, type Meal } from "../data/loadMeals"
 import type { UITheme } from "../styles/theme"
 import type { Page } from "../components/BottomNav"
+import { getMealServings } from "../utils/servings"
 
 function formatCalories(calories: number | null) {
   return calories != null ? `${calories} cal` : "Calories n/a"
@@ -18,6 +19,8 @@ export function BasketPage({
   clearBasketOnly,
   clearAll,
   setPage,
+  servingsByMeal,
+  updateMealServings,
 }: {
   basketMeals: Meal[]
   ui: UITheme
@@ -26,6 +29,8 @@ export function BasketPage({
   clearBasketOnly: () => void
   clearAll: () => void
   setPage: (p: Page) => void
+  servingsByMeal: Record<string, number>
+  updateMealServings: (mealId: string, servings: number) => void
 }) {
   return (
     <>
@@ -78,53 +83,92 @@ export function BasketPage({
           <p style={{ margin: 0, color: ui.muted }}>Your basket is empty.</p>
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
-            {basketMeals.map((m) => (
-              <div
-                key={m.id}
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  alignItems: "center",
-                  padding: 10,
-                  borderRadius: 12,
-                  background: ui.card2,
-                  border: `1px solid ${ui.border}`,
-                }}
-              >
-                <img
-                  src={m.imageUrl}
-                  alt=""
-                  onError={(e) => {
-                    e.currentTarget.onerror = null
-                    e.currentTarget.src = PLACEHOLDER_MEAL_IMAGE_URL
-                  }}
-                  style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover" }}
-                />
+            {basketMeals.map((m) => {
+              const servings = getMealServings(m, servingsByMeal)
 
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 900, color: ui.brand }}>{m.name}</div>
-                  <div style={{ color: ui.muted, fontSize: 13 }}>
-                    {formatCalories(m.calories)} • {formatTime(m.totalTime)}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => toggleMeal(m.id)}
+              return (
+                <div
+                  key={m.id}
                   style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                    padding: 10,
                     borderRadius: 12,
-                    padding: "10px 12px",
-                    background: ui.pink,
+                    background: ui.card2,
                     border: `1px solid ${ui.border}`,
-                    color: "#2a2a2a",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
                   }}
                 >
-                  Remove
-                </button>
-              </div>
-            ))}
+                  <img
+                    src={m.imageUrl}
+                    alt=""
+                    onError={(e) => {
+                      e.currentTarget.onerror = null
+                      e.currentTarget.src = PLACEHOLDER_MEAL_IMAGE_URL
+                    }}
+                    style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover" }}
+                  />
+
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 900, color: ui.brand }}>{m.name}</div>
+                    <div style={{ color: ui.muted, fontSize: 13 }}>
+                      {formatCalories(m.calories)} • {formatTime(m.totalTime)}
+                    </div>
+                    <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ color: ui.muted, fontSize: 13, fontWeight: 800 }}>Servings</span>
+                      <button
+                        onClick={() => updateMealServings(m.id, servings - 1)}
+                        disabled={servings <= 1}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 9,
+                          border: `1px solid ${ui.border}`,
+                          background: ui.card,
+                          color: ui.text,
+                          fontWeight: 900,
+                          fontSize: 17,
+                        }}
+                      >
+                        -
+                      </button>
+                      <div style={{ minWidth: 22, textAlign: "center", color: ui.text, fontWeight: 900 }}>{servings}</div>
+                      <button
+                        onClick={() => updateMealServings(m.id, servings + 1)}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 9,
+                          border: `1px solid ${ui.border}`,
+                          background: ui.card,
+                          color: ui.text,
+                          fontWeight: 900,
+                          fontSize: 17,
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => toggleMeal(m.id)}
+                    style={{
+                      borderRadius: 12,
+                      padding: "10px 12px",
+                      background: ui.pink,
+                      border: `1px solid ${ui.border}`,
+                      color: "#2a2a2a",
+                      fontWeight: 900,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )
+            })}
           </div>
         )}
 

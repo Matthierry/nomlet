@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { PLACEHOLDER_MEAL_IMAGE_URL, type Meal } from "../data/loadMeals"
 import type { UITheme } from "../styles/theme"
 import type { Page } from "../components/BottomNav"
+import { getMealServings, scaleQuantity } from "../utils/servings"
 
 const MEALS_SCROLL_KEY = "nomlet:scrollY:meals"
 
@@ -14,6 +15,17 @@ function formatCalories(calories: number | null) {
 
 function formatMinutes(value: number | null) {
   return value != null ? `${value} mins` : "n/a"
+}
+
+function formatQuantity(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.00$/, "")
+}
+
+function getInstructionSteps(text: string) {
+  return text
+    .split(/\n+/)
+    .map((step) => step.trim())
+    .filter((step) => step.length > 0)
 }
 
 function prepFilterMatches(meal: Meal, prepFilter: PrepFilter) {
@@ -34,6 +46,8 @@ export function MealsPage({
   ui,
   loading,
   error,
+  servingsByMeal,
+  updateMealServings,
 }: {
   meals: Meal[]
   basket: string[]
@@ -44,6 +58,8 @@ export function MealsPage({
   ui: UITheme
   loading: boolean
   error: string | null
+  servingsByMeal: Record<string, number>
+  updateMealServings: (mealId: string, servings: number) => void
 }) {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const [query, setQuery] = useState("")
@@ -165,6 +181,9 @@ export function MealsPage({
     setPrepFilter("all")
     setFavouritesOnly(false)
   }
+
+  const selectedMealServings = selectedMeal ? getMealServings(selectedMeal, servingsByMeal) : 2
+  const instructionSteps = selectedMeal ? getInstructionSteps(selectedMeal.instructions) : []
 
   return (
     <>
@@ -334,6 +353,7 @@ export function MealsPage({
           {filteredMeals.map((meal) => {
             const inBasket = basket.includes(meal.id)
             const isFavourite = favourites.includes(meal.id)
+            const servings = getMealServings(meal, servingsByMeal)
 
             return (
               <div
@@ -381,6 +401,7 @@ export function MealsPage({
                         <div style={{ marginTop: 4, color: ui.muted, fontSize: 14 }}>
                           {meal.foodCat || "General"} • {formatCalories(meal.calories)}
                         </div>
+                        <div style={{ marginTop: 4, color: ui.muted, fontSize: 14 }}>Serves {servings}</div>
                       </div>
 
                       <button
@@ -502,6 +523,44 @@ export function MealsPage({
               <div style={{ background: ui.card2, borderRadius: 12, padding: 10 }}>Category: {selectedMeal.foodCat || "General"}</div>
             </div>
 
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ color: ui.muted, fontSize: 13, fontWeight: 800, marginBottom: 6 }}>Servings</div>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <button
+                  onClick={() => updateMealServings(selectedMeal.id, selectedMealServings - 1)}
+                  disabled={selectedMealServings <= 1}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    border: `1px solid ${ui.border}`,
+                    background: ui.card2,
+                    color: ui.text,
+                    fontSize: 20,
+                    fontWeight: 900,
+                  }}
+                >
+                  -
+                </button>
+                <div style={{ minWidth: 44, textAlign: "center", fontWeight: 900, fontSize: 20, color: ui.text }}>{selectedMealServings}</div>
+                <button
+                  onClick={() => updateMealServings(selectedMeal.id, selectedMealServings + 1)}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    border: `1px solid ${ui.border}`,
+                    background: ui.card2,
+                    color: ui.text,
+                    fontSize: 20,
+                    fontWeight: 900,
+                  }}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <button
                 onClick={() => setDetailTab("ingredients")}
@@ -539,7 +598,7 @@ export function MealsPage({
                 <ul style={{ marginTop: 0, paddingLeft: 18 }}>
                   {selectedMeal.ingredients.map((ing, index) => (
                     <li key={`${selectedMeal.id}-${ing.name}-${index}`} style={{ marginBottom: 8, color: ui.text, lineHeight: 1.4 }}>
-                      {ing.name} x {ing.quantity} {ing.unit}
+                      {ing.name} x {formatQuantity(scaleQuantity(ing.quantity, ing.unit, selectedMealServings))} {ing.unit}
                     </li>
                   ))}
                 </ul>
@@ -552,14 +611,23 @@ export function MealsPage({
                     margin: 0,
                     color: ui.text,
                     lineHeight: 1.6,
-                    whiteSpace: "pre-wrap",
                     background: ui.card2,
                     borderRadius: 12,
                     padding: 12,
                     border: `1px solid ${ui.border}`,
                   }}
                 >
-                  {selectedMeal.instructions || "No cooking instructions available for this meal yet."}
+                  {instructionSteps.length > 0 ? (
+                    <ol style={{ margin: 0, paddingLeft: 20, display: "grid", gap: 10 }}>
+                      {instructionSteps.map((step, index) => (
+                        <li key={`${selectedMeal.id}-step-${index}`} style={{ fontSize: 17, lineHeight: 1.55 }}>
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    "No cooking instructions available for this meal yet."
+                  )}
                 </div>
               </>
             )}
