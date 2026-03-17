@@ -30,32 +30,53 @@ export function getMealImageUrl(mealId: string) {
   return `${import.meta.env.BASE_URL}images/meals/${encodeURIComponent(mealId)}.jpg`
 }
 
-function parseCSVLine(line: string): string[] {
-  const out: string[] = []
-  let cur = ""
+function parseCSV(text: string): string[][] {
+  const rows: string[][] = []
+  let currentRow: string[] = []
+  let currentCell = ""
   let inQuotes = false
 
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i]
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
 
     if (ch === '"') {
-      const next = line[i + 1]
+      const next = text[i + 1]
       if (inQuotes && next === '"') {
-        cur += '"'
+        currentCell += '"'
         i++
       } else {
         inQuotes = !inQuotes
       }
-    } else if (ch === "," && !inQuotes) {
-      out.push(cur)
-      cur = ""
-    } else {
-      cur += ch
+      continue
     }
+
+    if (ch === "," && !inQuotes) {
+      currentRow.push(currentCell.trim())
+      currentCell = ""
+      continue
+    }
+
+    if ((ch === "\n" || ch === "\r") && !inQuotes) {
+      if (ch === "\r" && text[i + 1] === "\n") i++
+      currentRow.push(currentCell.trim())
+      currentCell = ""
+
+      if (currentRow.some((cell) => cell.length > 0)) {
+        rows.push(currentRow)
+      }
+      currentRow = []
+      continue
+    }
+
+    currentCell += ch
   }
 
-  out.push(cur)
-  return out.map((s) => s.trim())
+  currentRow.push(currentCell.trim())
+  if (currentRow.some((cell) => cell.length > 0)) {
+    rows.push(currentRow)
+  }
+
+  return rows
 }
 
 function toNumber(value: string | undefined): number | null {
@@ -69,10 +90,10 @@ export async function loadMeals(): Promise<Meal[]> {
   if (!res.ok) throw new Error(`Failed to fetch CSV (${res.status})`)
 
   const text = await res.text()
-  const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0)
-  if (lines.length < 2) return []
+  const rows = parseCSV(text)
+  if (rows.length < 2) return []
 
-  const header = parseCSVLine(lines[0]).map((h) => h.trim().toLowerCase())
+  const header = rows[0].map((h) => h.trim().toLowerCase())
 
   const idx = (name: string) => header.indexOf(name)
 
@@ -99,8 +120,8 @@ export async function loadMeals(): Promise<Meal[]> {
 
   const mealsMap = new Map<string, Meal>()
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = parseCSVLine(lines[i])
+  for (let i = 1; i < rows.length; i++) {
+    const cols = rows[i]
 
     const mealId = cols[iMealId]?.trim()
     const mealName = cols[iMealName]?.trim()
